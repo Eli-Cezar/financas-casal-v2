@@ -1,0 +1,3998 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Finanças do Casal</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root{--bg:#16181d;--card-bg:#1e2128;--input-bg:#14161b;--popover-bg:#24272f;--text:#ffffff;--text-muted:#b0b0bb;--accent:#f97316;--accent-hover:#ea580c;--accent-bg:rgba(249,115,22,0.15);--primary:#34d399;--danger:#f87171;--border:#34373f;--border-focus:#f97316;--shadow:0 10px 15px -3px rgba(0,0,0,0.5),0 4px 6px -4px rgba(0,0,0,0.35);--radius:14px}
+    *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+    html,body{min-height:100%}
+    body{background-color:var(--bg);color:var(--text);padding:20px 16px;overflow-y:auto}
+    button{transition:transform 0.15s ease}
+    button:active{transform:scale(0.96)}
+    button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+    button i.ti{font-size:1em;line-height:1}
+    button:has(i.ti){display:inline-flex;align-items:center;justify-content:center;gap:6px}
+    .edit-btn i.ti,.delete-btn i.ti,.goal-item-actions button i.ti{font-size:0.95rem}
+    .notification-btn i.ti{font-size:1.05rem}
+    #network-status i.ti{font-size:0.9rem;margin-right:2px}
+    .container{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+    .main-grid{display:flex;flex-direction:column;gap:18px}
+    @media(min-width:768px){.main-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}}
+    .top-fixed{position:sticky;top:20px;z-index:20;background:var(--bg);width:100%;display:flex;flex-direction:column;gap:18px;padding-bottom:8px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:14px;text-align:left;margin-bottom:2px}
+    .header-logo{width:52px;min-width:52px;height:52px;border-radius:14px;display:grid;place-items:center;border:1px solid rgba(249,115,22,0.35);background:rgba(249,115,22,0.08)}
+    .header-logo svg{width:28px;height:28px;color:var(--accent);fill:currentColor}
+    .header-info{display:flex;flex-direction:column;gap:4px;text-align:left}
+    .header-info h1,.header-info p{margin:0}
+    header h1{font-size:1.6rem;font-weight:700;color:var(--accent);letter-spacing:-0.5px}
+    header p{font-size:0.85rem;color:var(--text-muted);margin-top:2px}
+    .header-actions button{background:var(--card-bg);border:1px solid var(--border);color:var(--accent);padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+    .header-actions button:hover{background:var(--accent-bg);color:var(--accent);border-color:rgba(249,115,22,0.4)}
+    .auth-screen{min-height:calc(100vh - 40px);display:grid;place-items:center}
+    @keyframes pulseGlowOpacity{0%,100%{opacity:0.35}50%{opacity:1}}
+    .auth-card{width:min(100%,420px);padding:40px 32px;border:1px solid var(--border);border-radius:24px;background:var(--card-bg);text-align:center;display:flex;flex-direction:column;justify-content:center;position:relative;transition:border-color 0.3s ease,box-shadow 0.3s ease}
+    .auth-card:focus-within{border-color:rgba(249,115,22,0.5);box-shadow:0 0 20px rgba(249,115,22,0.15)}
+    .auth-card::before{display:none}
+    .auth-card.signup-mode{width:min(100%,460px);padding:36px 32px}
+    .auth-card h1{color:var(--accent);font-size:1.35rem}
+    .auth-card>p{color:var(--text-muted);font-size:0.85rem;margin:8px 0 18px}
+    .auth-form{display:flex;flex-direction:column;gap:10px;text-align:left}
+    .auth-form.hidden{display:none}
+    .auth-form label{font-size:0.8rem;color:var(--text-muted)}
+    .auth-form input,.auth-form select{width:100%}
+    .auth-form button[type="submit"]{margin-top:4px}
+    .auth-switch{margin-top:14px;border:0;background:transparent;color:var(--accent);cursor:pointer;font-weight:600}
+    .auth-message{min-height:20px;margin-top:10px;color:var(--danger);font-size:0.82rem}
+    .logout-btn{font-size:0.72rem;padding:7px 10px !important}
+    .danger-btn{background:rgba(239,68,68,0.12);color:#f87171;border-color:rgba(239,68,68,0.3)}
+    .danger-btn:hover{background:rgba(239,68,68,0.25);border-color:rgba(239,68,68,0.5)}
+    .header-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+    .header-actions #logout-btn{margin-bottom:10px}
+    .header-icons-wrap{position:relative;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+    .input-wrapper{position:relative;width:100%}
+    .password-toggle-btn{position:absolute;top:50%;right:12px;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;padding:0}
+    .header-actions-top{display:flex;align-items:center;gap:6px;justify-content:flex-end}
+    .notification-btn{position:relative;width:34px;height:30px;padding:0 !important;display:grid;place-items:center;font-size:1rem}
+    .menu-popover{display:none;position:absolute;z-index:40;top:38px;right:0;min-width:190px;padding:6px;border:1px solid var(--border);border-radius:10px;background:var(--popover-bg);box-shadow:var(--shadow)}
+    .menu-popover.show{display:block}
+    .menu-popover button{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:none;color:var(--text);padding:9px 10px;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;text-align:left}
+    .menu-popover button:hover{background:var(--accent-bg)}
+    .menu-popover button.danger-btn{color:#f87171;background:transparent;border:none}
+    .menu-popover button.danger-btn:hover{background:rgba(239,68,68,0.15)}
+    .notification-count{display:none;position:absolute;top:-6px;right:-7px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:var(--danger);color:#000;font-size:0.65rem;font-weight:800;line-height:17px}
+    .notification-count.show{display:block}
+    .notification-popover{display:none;position:absolute;z-index:40;top:38px;right:0;width:min(310px,calc(100vw - 32px));padding:12px;border:1px solid rgba(248,113,113,0.4);border-radius:10px;background:var(--popover-bg);box-shadow:var(--shadow)}
+    .notification-popover.show{display:block}
+    .notification-popover h2{font-size:0.95rem;color:var(--danger);margin-bottom:8px}
+    .notification-list{gap:6px;max-height:230px;overflow-y:auto}
+    .notification-list li{padding:9px 10px;box-shadow:none;border-radius:8px}
+    .notification-list strong{font-size:0.85rem}
+    .notification-list small{display:block;color:var(--text-muted);margin-top:3px}
+    .balance-container-refinado{display:flex;flex-direction:column;gap:12px}
+    .balance-card-main{background:linear-gradient(135deg,rgba(249,115,22,0.2),rgba(249,115,22,0.04));border:1px solid rgba(249,115,22,0.35);border-radius:var(--radius);padding:20px;text-align:center;box-shadow:var(--shadow)}
+    .balance-card-main span{display:block;font-size:0.78rem;color:var(--text-muted);font-weight:800;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px}
+    .balance-card-main strong{display:block;font-size:2.1rem;font-weight:800;color:var(--text);line-height:1.1}
+    .balance-card-sub-grid{display:grid;grid-template-columns:repeat(3,1fr);background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+    .balance-item-mini{padding:14px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:4px}
+    .balance-item-mini:not(:first-child){border-left:1px solid var(--border)}
+    .balance-item-mini span{font-size:0.7rem;color:var(--text-muted);font-weight:800;white-space:nowrap}
+    .balance-item-mini strong{font-size:0.95rem;font-weight:800}
+    .form-card{background:var(--card-bg);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);border:1px solid var(--border);transition:transform 0.2s ease}
+    .income{color:var(--primary)!important}
+    .expense{color:var(--danger)!important}
+    form{display:flex;flex-direction:column;gap:16px}
+    .form-group{display:flex;gap:14px;flex-wrap:wrap}
+    .form-group>*{flex:1 1 140px;min-width:0}
+    .form-group>#category{flex-basis:100%}
+    input,select{padding:12px 14px;border-radius:10px;border:1px solid var(--border);background-color:var(--input-bg);color:var(--text);font-size:0.95rem;outline:none;transition:all 0.2s ease}
+    input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(249,115,22,0.25)}
+    select option{background:var(--popover-bg);color:var(--text)}
+    button[type="submit"]{background:linear-gradient(135deg,#f97316 0%,#ea580c 100%);color:white;border:1px solid rgba(251,146,60,0.4);border-radius:10px;padding:13px;font-size:1rem;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(249,115,22,0.35);transition:all 0.2s ease}
+    button[type="submit"]:active{transform:scale(0.98);box-shadow:0 2px 8px rgba(249,115,22,0.4)}
+    .input-with-action{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+    .input-with-action input{flex:1 1 220px;min-width:0}
+    .secondary-btn{background:rgba(249,115,22,0.05);color:var(--accent);border:1px solid rgba(249,115,22,0.3);border-radius:10px;padding:0 12px;font-size:0.9rem;font-weight:600;cursor:pointer;white-space:nowrap;min-height:40px;transition:all 0.2s ease}
+    .catalog-toggle-btn{color:var(--accent);border-color:rgba(249,115,22,0.35)}
+    .catalog-toggle-btn:hover{background:var(--accent-bg);border-color:rgba(249,115,22,0.6)}
+    .suggestions{display:none;flex-direction:column;gap:6px;margin-top:6px;padding:8px;border:1px solid var(--border);border-radius:10px;background:var(--input-bg)}
+    .suggestions.show{display:flex}
+    .form-message{padding:8px 10px;border-radius:8px;font-size:0.9rem;margin-top:8px;display:none}
+    .form-message.show{display:block}
+    .form-message.error{background:rgba(248,113,113,0.12);color:#f87171;border:1px solid rgba(248,113,113,0.2)}
+    .form-message.success{background:rgba(34,197,94,0.08);color:#16a34a;border:1px solid rgba(34,197,94,0.12)}
+    .suggestion-item{width:100%;text-align:left;padding:8px 10px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--text);cursor:pointer;font-size:0.9rem}
+    .suggestion-item:hover{background:rgba(249,115,22,0.12);border-color:rgba(249,115,22,0.25)}
+    .history-header{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+    .history-header h2{font-size:1.15rem;font-weight:600;color:var(--accent)}
+    .filter-select{padding:8px 12px;font-size:0.8rem;border-radius:8px;border:1px solid var(--border);background-color:var(--card-bg);color:var(--accent);transition:all 0.2s ease}
+    .filter-select:focus{border-color:var(--border-focus);box-shadow:0 0 0 2px rgba(249,115,22,0.25)}
+    .period-quick-filter{display:flex;gap:10px;flex-wrap:wrap}
+    .period-chip{background:var(--card-bg);color:var(--text);border:1.5px solid var(--border);padding:10px 18px;border-radius:999px;font-size:0.85rem;font-weight:700;cursor:pointer}
+    .period-chip:hover{border-color:var(--accent);color:var(--accent)}
+    .period-chip.active{background:var(--accent);color:#1a1200;border-color:var(--accent);box-shadow:0 4px 12px rgba(249,115,22,0.35)}
+    .orange-border{border:1px solid rgba(249,115,22,0.3);background:rgba(249,115,22,0.05)}
+    .orange-border:focus{border-color:var(--border-focus)}
+    .container-filtros-usuario{display:flex;gap:8px;margin-bottom:16px;width:100%;flex-wrap:wrap}
+    .btn-usuario-filtro{flex:1 1 90px;padding:12px 8px;border:1px solid rgba(249,115,22,0.5);border-radius:8px;font-size:0.85rem;font-weight:700;cursor:pointer;transition:all 0.25s ease;background-color:#000000;color:#ffffff}
+    .btn-usuario-filtro:hover{background-color:rgba(249,115,22,0.15)}
+    .btn-usuario-filtro.ativo{background-color:var(--accent);color:#000000;border-color:var(--accent);box-shadow:0 4px 14px rgba(249,115,22,0.35)}
+    .container-tabela-gerencial{width:100%;overflow-x:auto}
+    .tabela-gerencial-usuario{width:100%;color:var(--text);border-collapse:collapse;font-size:0.88rem}
+    .tabela-gerencial-usuario thead tr{border-bottom:2px solid var(--border);text-align:left}
+    .tabela-gerencial-usuario th{padding:10px;font-size:0.78rem;text-transform:uppercase;letter-spacing:0.3px;color:var(--text-muted)}
+    .tabela-gerencial-usuario td{padding:12px 10px;border-bottom:1px solid var(--border)}
+    .tabela-gerencial-usuario td.col-quem{text-align:right;font-size:0.75rem;color:var(--text-muted)}
+    .resumo-usuario-grid{display:grid;grid-template-columns:repeat(3,1fr);background:var(--input-bg);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:16px}
+    .resumo-usuario-item{padding:12px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center;gap:4px}
+    .resumo-usuario-item:not(:first-child){border-left:1px solid var(--border)}
+    .resumo-usuario-item span{font-size:0.68rem;color:var(--text-muted);font-weight:800;white-space:nowrap}
+    .resumo-usuario-item strong{font-size:0.92rem;font-weight:800}
+    ul{list-style:none;display:flex;flex-direction:column;gap:12px}
+    li{background:var(--card-bg);border-radius:12px;padding:16px 20px;box-shadow:var(--shadow);border:1px solid #2a2d35;display:flex;justify-content:space-between;align-items:center;gap:12px;transition:transform 0.15s ease}
+    li:hover{border-color:rgba(249,115,22,0.4)}
+    .item-left{display:flex;align-items:center;gap:12px}
+    .category-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.25rem;background:var(--accent-bg);border:1px solid rgba(249,115,22,0.3);color:var(--accent)}
+    .category-icon i{font-size:1.35rem}
+    .icon-picker{position:relative}
+    .icon-picker-trigger{width:100%;display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--input-bg);color:var(--text);cursor:pointer;text-align:left}
+    .icon-picker-trigger:hover,.icon-picker.open .icon-picker-trigger{border-color:var(--accent);background:var(--accent-bg)}
+    .icon-picker-trigger i{font-size:1.3rem;color:var(--accent)}
+    .icon-picker-trigger .ti-chevron-down{font-size:1rem;color:var(--text-muted);transition:transform 0.2s ease}
+    .icon-picker.open .ti-chevron-down{transform:rotate(180deg)}
+    .icon-library{display:none;position:absolute;z-index:10;left:0;right:0;top:calc(100% + 6px);grid-template-columns:repeat(6,1fr);gap:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--popover-bg);box-shadow:var(--shadow)}
+    .icon-picker.open .icon-library{display:grid}
+    .icon-choice{height:42px;border:1px solid var(--border);border-radius:9px;background:var(--input-bg);color:var(--text-muted);font-size:1.25rem;cursor:pointer}
+    .icon-choice:hover,.icon-choice.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+    .icon-choice.selected{box-shadow:0 0 0 2px rgba(249,115,22,0.2)}
+    .category-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+    .item-details strong{display:block;font-size:0.95rem;font-weight:600;color:#ffffff}
+    .item-details small{color:var(--text-muted);font-size:0.75rem;margin-top:2px;display:block}
+    .creator-badge{display:inline-block;margin-top:4px;font-size:0.68rem;background-color:var(--accent);color:#1a1a1a;padding:2px 7px;border-radius:999px;font-weight:800;letter-spacing:0.2px}
+    .item-right{display:flex;align-items:center;gap:12px}
+    .item-value{font-weight:700;font-size:0.95rem}
+    .status-toggle{margin-top:6px;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:var(--input-bg);color:var(--text);font-size:0.8rem;font-weight:600;cursor:pointer}
+    .status-toggle.paid{background:#dcfce7;color:#166534;border-color:#86efac}
+    .status-toggle.pending{background:#fef3c7;color:#92400e;border-color:#fde68a}
+    .item-actions{display:flex;align-items:center;gap:6px}
+    .edit-btn,.delete-btn{background:var(--input-bg);color:var(--text-muted);border:1px solid #2a2d35;border-radius:8px;font-size:1rem;cursor:pointer;padding:8px 12px;transition:all 0.2s}
+    .edit-btn:hover{color:var(--accent);border-color:var(--accent)}
+    .delete-btn:hover{color:var(--danger);border-color:var(--danger);background:rgba(239,68,68,0.12)}
+    .report-list{list-style:none;padding:0;margin:8px 0 0 0;display:flex;flex-direction:column;gap:8px}
+    .report-list li{padding:12px 14px;background:rgba(0,0,0,0.4);border-color:rgba(255,255,255,0.08)}
+    .launch-content{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;max-height:420px;overflow-y:auto;padding-right:4px;transition:max-height 0.2s ease,opacity 0.2s ease}
+    .launch-content.collapsed{display:none}
+    .launch-item{display:grid;grid-template-columns:1fr auto;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid rgba(249,115,22,0.15);background:rgba(255,255,255,0.04)}
+    .launch-item:hover{background:rgba(249,115,22,0.12);transform:translateY(-1px)}
+    .launch-item .item-details{min-width:0}
+    .launch-item .item-details strong{font-size:0.95rem}
+    .launch-item .item-details small{color:var(--text-muted);font-size:0.8rem;margin-top:4px}
+    .launch-actions{display:flex;gap:6px}
+    .catalog-section{padding-top:10px;border-top:1px solid rgba(249,115,22,0.18)}
+    .catalog-section-header{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .catalog-section-header h3{font-size:0.95rem;color:var(--accent)}
+    .launch-placeholder{padding:12px 14px;border-radius:10px;border:1px dashed rgba(248,113,113,0.25);color:var(--text-muted);background:rgba(248,113,113,0.08)}
+    .report-accordion{margin-top:10px}
+    .report-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:12px;color:var(--text);cursor:pointer;transition:all 0.25 ease;text-align:left;font-size:0.95rem;font-weight:700;box-shadow:var(--shadow)}
+    .report-toggle-info{display:flex;align-items:center;gap:8px}
+    .report-toggle-icon{font-size:0.75rem;transition:transform 0.2s ease;color:var(--text-muted)}
+    .report-toggle[aria-expanded="true"] .report-toggle-icon{transform:rotate(180deg)}
+    .report-toggle.danger{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.3);color:#f87171}
+    .report-toggle.danger:hover{background:rgba(248,113,113,0.16);border-color:rgba(248,113,113,0.5)}
+    .report-toggle.primary{background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.3);color:#34d399}
+    .report-toggle.primary:hover{background:rgba(52,211,153,0.16);border-color:rgba(52,211,153,0.5)}
+    .report-toggle-value{font-size:1.05rem;font-weight:800}
+    .history-header-left{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .filtered-total{padding:8px 12px;border-radius:8px;border:1px solid rgba(249,115,22,0.3);background:rgba(249,115,22,0.05);text-align:right}
+    .filtered-total span{display:block;font-size:0.8rem;color:#fb923c;font-weight:600}
+    .filtered-total strong{font-size:1.05rem;font-weight:700;color:var(--accent)}
+    .repeat-options-container{display:none;gap:10px}
+    .hidden{display:none!important}
+    .collapsed{display:none!important}
+    .card-section{background:var(--card-bg);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);border:1px solid var(--border)}
+    .card-section h3{font-size:1.05rem;font-weight:700;color:var(--accent)}
+    .goal-item{margin-bottom:12px;background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:14px;padding:14px 16px;transition:border-color 0.2s ease}
+    .goal-item:hover{border-color:rgba(249,115,22,0.35)}
+    .goal-item:last-child{margin-bottom:0}
+    .goal-item-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+    .goal-name-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .goal-name{font-size:0.9rem;font-weight:600;color:#ffffff}
+    .goal-status-tag{font-size:0.63rem;font-weight:800;text-transform:uppercase;letter-spacing:0.3px;padding:2px 9px;border-radius:999px;white-space:nowrap}
+    .goal-status-tag.ok{background:rgba(34,197,94,0.15);color:#4ade80;border:1px solid rgba(34,197,94,0.4)}
+    .goal-status-tag.alert{background:rgba(249,115,22,0.15);color:#fb923c;border:1px solid rgba(249,115,22,0.4)}
+    .goal-status-tag.over{background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.4)}
+    .goal-item-actions{display:flex;gap:6px}
+    .goal-item-actions button{background:transparent;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;padding:3px 6px;border-radius:6px;transition:all 0.2s ease}
+    .goal-item-actions button:hover{color:var(--accent);background:var(--accent-bg)}
+    .goal-item-actions button.define-btn{background:rgba(249,115,22,0.08);color:var(--accent);border:1px solid rgba(249,115,22,0.3);border-radius:8px;padding:5px 12px;font-weight:700;font-size:0.78rem}
+    .goal-item-actions button.define-btn:hover{background:rgba(249,115,22,0.18)}
+    .goal-bar-track{position:relative;width:100%;height:26px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid var(--border);overflow:hidden}
+    .goal-bar-fill{height:100%;border-radius:999px;background:linear-gradient(135deg,#f97316 0%,#ea580c 100%);transition:width 0.3s ease}
+    .goal-bar-fill.over{background:linear-gradient(135deg,#f87171 0%,#dc2626 100%)}
+    .goal-bar-label{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#ffffff;text-shadow:0 1px 3px rgba(0,0,0,0.7);pointer-events:none}
+    .goal-empty{color:var(--text-muted);font-size:0.85rem}
+    .modal-overlay{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.65);display:flex;align-items:center;justify-content:center;padding:20px}
+    .modal-overlay.hidden{display:none}
+    .modal-card{width:min(100%,380px);background:var(--card-bg);border:1px solid rgba(249,115,22,0.3);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
+    .modal-card h3{color:var(--accent);font-size:1.05rem;margin-bottom:16px}
+    body{padding-bottom:78px}
+    .fab-add-transacao{position:fixed;bottom:80px;right:20px;width:56px;height:56px;background-color:var(--accent);border:none;border-radius:50%;color:#000000;font-size:26px;font-weight:bold;cursor:pointer;box-shadow:0 4px 14px rgba(249,115,22,0.45);display:flex;align-items:center;justify-content:center;z-index:90;transition:transform 0.2s ease}
+    .fab-add-transacao:active{transform:scale(0.9)}
+    .fab-add-transacao.hidden{display:none}
+    .tx-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;z-index:100}
+    .tx-modal-overlay.active{display:block}
+    .tx-modal-sheet{position:fixed;bottom:0;left:0;right:0;background-color:var(--card-bg);border-top-left-radius:20px;border-top-right-radius:20px;padding:20px;padding-bottom:max(20px,env(safe-area-inset-bottom));max-height:88vh;overflow-y:auto;z-index:101;transform:translateY(100%);transition:transform 0.3s ease-out}
+    .tx-modal-overlay.active .tx-modal-sheet{transform:translateY(0)}
+    .tx-modal-sheet-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .tx-modal-sheet-header h3{color:var(--text);margin:0;font-size:1.1rem}
+    .tx-modal-close-btn{background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1;padding:4px}
+    .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:72px;background-color:var(--card-bg);border-top:1px solid var(--border);display:flex;justify-content:space-around;align-items:center;z-index:95;padding-bottom:env(safe-area-inset-bottom);box-shadow:0 -4px 20px rgba(0,0,0,0.5)}
+    .bottom-nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:none;color:var(--text-muted);font-size:0.8rem;font-weight:700;cursor:pointer;padding:6px 0;width:25%;height:100%;gap:5px;transition:color 0.2s ease}
+    .bottom-nav-item i.ti{font-size:1.5rem!important;color:var(--text-muted)}
+    .bottom-nav-item.active,.bottom-nav-item.active i.ti{color:var(--accent)!important}
+    @media(min-width:768px){.main-grid:has(>.history-panel:only-child){grid-template-columns:1fr}}
+    .tx-modal-sheet .form-group input:not([type="checkbox"]),
+    .tx-modal-sheet .form-group select,
+    .tx-modal-sheet .input-with-action input{background-color:#1e1e1e;border:1px solid #333333;color:#ffffff;border-radius:10px;padding:14px 16px;width:100%;font-size:16px;margin-bottom:0;box-sizing:border-box;transition:border-color 0.2s ease,box-shadow 0.2s ease}
+    .tx-modal-sheet .form-group input:not([type="checkbox"]):focus,
+    .tx-modal-sheet .form-group select:focus,
+    .tx-modal-sheet .input-with-action input:focus{border-color:var(--accent);box-shadow:0 0 0 2px rgba(249,115,22,0.2);outline:none}
+    .tx-modal-sheet .form-group input[type="date"]{color-scheme:dark}
+    .tx-modal-sheet .form-group{margin-bottom:14px}
+    .tx-modal-sheet .amount-input-hero{font-size:28px!important;font-weight:800;text-align:center;color:var(--accent)!important;padding:16px!important}
+    .tx-modal-sheet .tx-submit-btn{width:100%;padding:16px;background-color:var(--accent);border:none;color:#000000;font-size:1rem;font-weight:700;border-radius:12px;cursor:pointer;box-shadow:0 4px 12px rgba(249,115,22,0.3);display:flex;align-items:center;justify-content:center;gap:8px}
+    .tx-modal-sheet .tx-submit-btn:active{transform:scale(0.98)}
+    .modal-field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+    .modal-field label{font-size:0.8rem;color:var(--text-muted)}
+    .modal-static-label{margin:-6px 0 14px;padding:10px 12px;border-radius:10px;font-size:0.95rem;font-weight:600;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.25)}
+    .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px}
+    #goal-modal-save{background:linear-gradient(135deg,#f97316 0%,#ea580c 100%);color:white;border:1px solid rgba(251,146,60,0.4);border-radius:10px;padding:10px 18px;font-size:0.9rem;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+    #goal-modal-save:active{transform:scale(0.98)}
+    #goal-modal-error:empty{display:none}
+    button[type="submit"]:active{transform:scale(0.98);box-shadow:0 2px 8px rgba(249,115,22,0.4)}
+    input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(249,115,22,0.25)}
+    .export-buttons-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .export-label{font-size:0.75rem;color:var(--accent);font-weight:700;letter-spacing:0.3px;white-space:nowrap;text-transform:uppercase}
+    .export-buttons{display:flex;gap:6px;flex-wrap:wrap}
+    .export-btn{padding:0 10px;min-height:34px;font-size:0.8rem;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+    .export-btn i.ti{font-size:0.9rem}
+    @media(max-width:480px){.export-buttons-wrap{width:100%;flex-direction:column;align-items:flex-start;gap:6px}.export-buttons{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.export-btn{width:100%;justify-content:center;padding:0 6px;min-height:36px;font-size:0.75rem}}
+    .menu-section-label{font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;color:var(--text-muted);padding:6px 10px 2px}
+    .menu-section-divider{display:block;height:1px;background:var(--border);margin:6px 4px}
+    #invite-phone-field.hidden,#invite-email-field.hidden{display:none}
+    .invite-method-tabs{display:flex;gap:6px;margin-bottom:10px}
+    .invite-method-btn{flex:1;background:transparent;border:1px solid var(--border);color:var(--text-muted);border-radius:8px;padding:8px 6px;font-size:0.78rem;font-weight:600;cursor:pointer;transition:all 0.2s ease}
+    .invite-method-btn.active{background:rgba(249,115,22,0.15);border-color:rgba(249,115,22,0.5);color:var(--accent)}
+    #biometric-unlock-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;background:linear-gradient(135deg,#f97316 0%,#ea580c 100%);color:white;border:1px solid rgba(251,146,60,0.4);border-radius:14px;padding:18px;font-size:1.1rem;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(249,115,22,0.35);transition:all 0.25s ease}
+    #biometric-unlock-btn:active{transform:scale(0.98);box-shadow:0 2px 8px rgba(249,115,22,0.4)}
+    #biometric-unlock-btn i.ti{font-size:1.6rem}
+    #biometric-unlock-btn:disabled{opacity:0.35;transform:scale(0.92);box-shadow:none;cursor:not-allowed}
+    #biometric-unlock-btn.ready{animation:bioReadyPulse 1.6s ease-in-out infinite}
+    @keyframes bioReadyPulse{0%,100%{transform:scale(1);box-shadow:0 4px 14px rgba(249,115,22,0.35)}50%{transform:scale(1.045);box-shadow:0 8px 26px rgba(249,115,22,0.6)}}
+    #biometric-lock-email-group{text-align:left;margin-top:14px}
+    #biometric-lock-email-group label{font-size:0.8rem;color:var(--text-muted);display:block;margin-bottom:6px}
+    #biometric-hint{font-size:0.78rem;color:var(--text-muted);margin-top:10px;min-height:16px}
+    #biometric-hint.ready{color:var(--primary);font-weight:600}
+    #biometric-hint.no-match{color:var(--danger)}
+    #voice-input-btn{background:rgba(249,115,22,0.1);color:var(--accent);border:1px solid rgba(249,115,22,0.4);transition:all 0.3s ease;min-height:48px;font-size:1rem;padding:0 16px}
+    #voice-input-btn i.ti{font-size:1.2rem}
+    #voice-input-btn:hover{background:rgba(249,115,22,0.2);border-color:rgba(249,115,22,0.6)}
+     #voice-indicator{animation:pulseGlowOpacity 1.5s ease-in-out infinite}
+     .remember-me-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:0;margin-bottom:2px}
+     .remember-me-label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:0.78rem;color:var(--text-muted);user-select:none}
+     .remember-me-checkbox:focus-visible{outline:2px solid var(--border-focus);outline-offset:2px}
+     .voice-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card-bg);border:1px solid rgba(52,211,153,0.5);color:var(--primary);padding:12px 20px;border-radius:12px;font-size:0.9rem;font-weight:700;z-index:200;box-shadow:0 10px 30px rgba(0,0,0,0.6);animation:slideUp 0.3s ease}
+    @keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes pulsate{
+  0%{box-shadow:0 0 0 0 rgba(52,211,153,0.7);transform:scale(1);}
+  70%{box-shadow:0 0 0 10px rgba(52,211,153,0);transform:scale(1);}
+  100%{box-shadow:0 0 0 0 rgba(52,211,153,0);transform:scale(1);}
+}
+.led-pulse{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:8px;vertical-align:middle;animation:pulsate 2s infinite}
+.status-online .led-pulse{background:#34d399;box-shadow:0 0 0 0 rgba(52,211,153,0.7)}
+.status-offline .led-pulse{background:#f87171;animation:none;box-shadow:none}
+     @keyframes aiFlash{0%{box-shadow:0 0 0 0 rgba(52,211,153,0);border-color:var(--border)}30%{box-shadow:0 0 0 4px rgba(52,211,153,0.55);border-color:#34d399}100%{box-shadow:0 0 0 0 rgba(52,211,153,0);border-color:var(--accent)}}
+     .ai-filled{animation:aiFlash 1.4s ease-out;border-color:#34d399 !important;background-color:rgba(52,211,153,0.08) !important}
+  </style>
+</head>
+<body>
+<div id="biometric-lock-view" class="auth-screen hidden" style="display:none !important;">
+  <section class="auth-card" aria-labelledby="biometric-lock-title">
+    <h1 id="biometric-lock-title">Finanças</h1>
+    <p>Confirme seu e-mail cadastrado para desbloquear com a digital.</p>
+    <div id="biometric-lock-email-group">
+      <label for="biometric-lock-email">E-mail</label>
+      <input id="biometric-lock-email" type="email" autocomplete="email" placeholder="seu@email.com"/>
+    </div>
+    <button type="button" id="biometric-unlock-btn" style="margin-top:20px;" disabled><i class="ti ti-fingerprint"></i> Desbloquear com digital</button>
+    <p id="biometric-hint">Digite o e-mail cadastrado neste aparelho para habilitar o botão.</p>
+    <button type="button" id="biometric-use-password-btn" class="auth-switch" style="margin-top:10px;">Entrar com senha</button>
+    <p id="biometric-lock-message" class="auth-message" role="status" aria-live="polite"></p>
+  </section>
+</div>
+<div id="auth-view" class="auth-screen" style="display:grid !important; visibility:visible !important; opacity:1 !important;">
+  <noscript>
+    <p style="color:#fff;padding:20px;text-align:center;">Este aplicativo precisa de JavaScript habilitado.</p>
+  </noscript>
+  <section id="auth-card" class="auth-card" aria-labelledby="auth-title">
+    <div class="header-logo" style="margin:0 auto 12px;" aria-hidden="true">
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="22" cy="24" r="8" opacity="0.2"/>
+        <path d="M14 54c0-5.523 4.477-10 10-10h4c5.523 0 10 4.477 10 10v2H14v-2Z" opacity="0.2"/>
+        <circle cx="42" cy="22" r="6" opacity="0.35"/>
+        <path d="M36 52c0-4.418 3.582-8 8-8h2c4.418 0 8 3.582 8 8v2H36v-2Z" opacity="0.35"/>
+        <path d="M18 18c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8-8-3.582-8-8Z"/>
+      </svg>
+    </div>
+    <h1 id="auth-title">Finanças</h1>
+    <p id="auth-subtitle">Entre para acessar suas finanças.</p>
+    <form id="login-form" class="auth-form">
+      <label for="login-email">E-mail</label>
+      <input id="login-email" type="email" autocomplete="off" name="email" required placeholder="seu@email.com"/>
+      <label for="login-password">Senha</label>
+      <div class="input-wrapper">
+        <input id="login-password" type="password" autocomplete="new-password" name="password" required placeholder="Sua senha"/>
+        <button type="button" id="toggle-login-password" class="password-toggle-btn" aria-label="Mostrar/ocultar senha"><i class="ti ti-eye"></i></button>
+      </div>
+      <div class="remember-me-row" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <label for="remember-me" class="remember-me-label">
+          <input type="checkbox" id="remember-me" class="remember-me-checkbox" style="width: 16px; height: 16px; margin: 0; accent-color: var(--accent); cursor: pointer;"/>
+          Lembrar-me
+        </label>
+        <button type="button" id="forgot-password-btn" style="background:transparent;border:0;color:var(--accent);cursor:pointer;font-size:0.78rem;font-weight:600;padding:0;">Esqueci minha senha</button>
+      </div>
+      <div id="forgot-password-box" class="hidden" style="background:rgba(249,115,22,0.06);border:1px solid rgba(249,115,22,0.25);border-radius:10px;padding:12px;margin-top:2px;">
+        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px;">Informe seu e-mail para receber o link de redefinição de senha:</p>
+        <input id="forgot-password-email" type="email" placeholder="seu@email.com" style="width:100%;margin-bottom:8px;"/>
+        <button type="button" id="send-reset-email-btn" class="secondary-btn" style="width:100%;">Enviar link de redefinição</button>
+        <p id="forgot-password-message" style="font-size:0.78rem;margin-top:6px;min-height:16px;"></p>
+      </div>
+      <button type="submit">Entrar</button>
+    </form>
+    <form id="signup-form" class="auth-form hidden">
+      <label for="signup-name">Seu nome</label>
+      <input id="signup-name" type="text" autocomplete="name" required/>
+      <label for="signup-email">E-mail</label>
+      <input id="signup-email" type="email" autocomplete="email" required/>
+      <label for="signup-password">Senha (mínimo 8 caracteres, com letras e números)</label>
+      <div class="input-wrapper">
+        <input id="signup-password" type="password" autocomplete="new-password" minlength="8" required/>
+        <button type="button" id="toggle-signup-password" class="password-toggle-btn" aria-label="Mostrar/ocultar senha"><i class="ti ti-eye"></i></button>
+      </div>
+      <p id="signup-password-hint" style="font-size:0.78rem;color:var(--text-muted,#9ca3af);margin:4px 0 0;">A senha precisa ter letras e números. Caracteres especiais (ex: @ # !) são opcionais.</p>
+      <button type="submit">Criar conta</button>
+    </form>
+    <p id="auth-message" class="auth-message" role="status" aria-live="polite"></p>
+    <p id="auth-invite-message" style="font-size:0.82rem;color:var(--primary);display:none;margin:8px 0;">📩 Você foi convidado para uma conta casal! Ao criar sua conta você entrará automaticamente.</p>
+    <button type="button" id="auth-switch-btn" class="auth-switch">Criar uma conta</button>
+  </section>
+</div>
+<div id="main-view" class="container" style="display:none;">
+  <div id="network-status" class="status-online"><span class="led-pulse"></span><i class="ti ti-wifi"></i> Online</div>
+  <header>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="header-logo" aria-hidden="true">
+        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="22" cy="24" r="8" opacity="0.2"/>
+          <path d="M14 54c0-5.523 4.477-10 10-10h4c5.523 0 10 4.477 10 10v2H14v-2Z" opacity="0.2"/>
+          <circle cx="42" cy="22" r="6" opacity="0.35"/>
+          <path d="M36 52c0-4.418 3.582-8 8-8h2c4.418 0 8 3.582 8 8v2H36v-2Z" opacity="0.35"/>
+          <path d="M18 18c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8-8-3.582-8-8Z"/>
+        </svg>
+      </div>
+      <div class="header-info" id="header-info">
+  <div style="display:flex;align-items:center;gap:6px;">
+    <div id="avatar-header-wrapper" style="width:44px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;">
+     <img id="avatar-header" src="" alt="Avatar" style="width:44px;height:44px;border-radius:50%;border:2px solid var(--border);object-fit:cover;display:none;" onerror="this.style.display='none';var p=this.parentNode;if(p&&!document.getElementById('avatar-header-fallback')){var l=document.createElement('span');l.id='avatar-header-fallback';l.textContent='👤';l.style.fontSize='1.6rem';l.style.lineHeight='1';l.style.color='var(--text-muted)';p.insertBefore(l,this);}"/>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+      <div id="saudacao-linha-1" style="font-size:0.85rem;font-weight:400;color:var(--text-muted);margin:0;line-height:1.1;">Bom dia, que bom estar de volta! ✨</div>
+      <div id="saudacao-linha-2" style="font-size:1.3rem;font-weight:700;color:var(--accent);margin:0;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Eli &amp; Viviane</div>
+    </div>
+  </div>
+</div>
+    </div>
+    <div class="header-actions">
+      <button type="button" id="logout-btn" class="logout-btn"><i class="ti ti-logout"></i> Sair</button>
+      <div class="header-icons-wrap">
+        <div class="header-actions-top">
+          <button type="button" id="invite-btn" class="notification-btn" style="display:none;" aria-expanded="false" aria-label="Convidar parceiro(a)" title="Convidar parceiro(a)"><i class="ti ti-user-plus"></i></button>
+          <button type="button" id="notification-btn" class="notification-btn" aria-expanded="false" aria-label="Ver contas com vencimento nos próximos 2 dias" title="Contas a vencer nos próximos 2 dias"><i class="ti ti-bell"></i><span id="notification-count" class="notification-count"></span></button>
+        </div>
+        <div id="menu-popover" class="menu-popover" role="menu" aria-label="Mais opções">
+          <span class="menu-section-label">Configurações</span>
+          <button type="button" id="couple-activate-btn" role="menuitem" style="display:none;"><i class="ti ti-users"></i> Ativar Conta Casal</button>
+          <button type="button" id="biometric-toggle-btn" role="menuitem" style="display:none;"><i class="ti ti-fingerprint"></i> Ativar desbloqueio por digital</button>
+<button type="button" id="voice-toggle-btn" role="menuitem" style="display:none;"><i class="ti ti-microphone"></i> Ativar comando por voz</button>
+ <span class="menu-section-label">Perfil</span>
+ <div id="perfil-foto-container" style="background:var(--card-bg);border-radius:var(--radius);padding:16px;margin:8px 4px;text-align:center;">
+   <h3 style="font-size:0.95rem;color:var(--accent);margin-bottom:15px;">Foto de Perfil</h3>
+   <img id="perfil-foto-preview" src="" alt="Pré-visualização da foto de perfil" style="width:100px;height:100px;border-radius:50%;border:3px solid var(--accent);background:#262626;object-fit:cover;margin:0 auto 15px auto;display:block;"/>
+   <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+    <input type="file" id="input-foto-galeria" accept="image/*" style="display:none;">
+    <input type="file" id="input-foto-camera-traseira" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="input-foto-camera-frontal" accept="image/*" capture="user" style="display:none;">
+     <button type="button" id="btn-escolher-galeria" style="flex:1 1 96px;padding:10px 8px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:700;cursor:pointer;font-size:0.8rem;">🖼️ Galeria</button>
+     <button type="button" id="btn-camera-traseira" style="flex:1 1 96px;padding:10px 8px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:700;cursor:pointer;font-size:0.8rem;">📷 Câmera</button>
+     <button type="button" id="btn-camera-frontal" style="flex:1 1 96px;padding:10px 8px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:10px;font-weight:700;cursor:pointer;font-size:0.8rem;">🤳 Selfie</button>
+     <button type="button" id="btn-salvar-foto" style="display:none;flex:1 1 130px;padding:10px 12px;background:var(--accent);border:1px solid var(--accent);color:#000;border-radius:10px;font-weight:700;cursor:pointer;">💾 Salvar Foto</button>
+   </div>
+ </div>
+<span class="menu-section-divider"></span>
+          <button type="button" id="delete-account-btn" class="danger-btn" role="menuitem"><i class="ti ti-trash"></i> Excluir Conta</button>
+        </div>
+        <div id="couple-activate-popover" class="notification-popover" role="dialog" aria-label="Ativar conta casal">
+          <h2 style="color:var(--accent);">Ativar Conta Casal</h2>
+          <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;">Seus dados atuais serão migrados para a conta conjunta. Depois de ativada, essa opção não pode ser desfeita pelo app.</p>
+          <label for="couple-name-ele" style="font-size:0.78rem;color:var(--text-muted);">Nome (ELE)</label>
+          <input id="couple-name-ele" type="text" placeholder="Ex: João" style="width:100%;margin-bottom:8px;"/>
+          <label for="couple-name-ela" style="font-size:0.78rem;color:var(--text-muted);">Nome (ELA)</label>
+          <input id="couple-name-ela" type="text" placeholder="Ex: Maria" style="width:100%;margin-bottom:8px;"/>
+          <button type="button" id="couple-activate-confirm-btn" class="secondary-btn" style="width:100%;">Ativar Conta Casal</button>
+          <p id="couple-activate-error-msg" style="font-size:0.78rem;color:var(--danger);margin-top:6px;min-height:16px;"></p>
+        </div>
+        <div id="notification-popover" class="notification-popover" role="dialog" aria-label="Avisos de vencimento">
+          <h2>Vencimentos próximos (2 dias)</h2>
+          <ul id="notification-list" class="notification-list"></ul>
+        </div>
+        <div id="invite-popover" class="notification-popover" role="dialog" aria-label="Convidar parceiro(a)">
+          <h2 style="color:var(--accent);">Convide seu parceiro(a)</h2>
+          <div id="invite-step-email">
+            <div class="invite-method-tabs">
+              <button type="button" id="invite-method-email-btn" class="invite-method-btn active">E-mail</button>
+              <button type="button" id="invite-method-phone-btn" class="invite-method-btn">Celular (WhatsApp)</button>
+            </div>
+            <div id="invite-email-field">
+              <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px;">Digite o e-mail dele(a) para gerar o link de convite:</p>
+              <input id="invite-partner-email" type="email" placeholder="email@exemplo.com" style="width:100%;margin-bottom:8px;"/>
+            </div>
+            <div id="invite-phone-field" class="hidden">
+              <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px;">Digite o celular dele(a) com DDD para enviar o convite pelo WhatsApp:</p>
+              <input id="invite-partner-phone" type="tel" placeholder="(11) 91234-5678" style="width:100%;margin-bottom:8px;"/>
+            </div>
+            <button type="button" id="generate-invite-link-btn" class="secondary-btn" style="width:100%;">Gerar link de convite</button>
+            <p id="invite-error-msg" style="font-size:0.78rem;color:var(--danger);margin-top:6px;min-height:16px;"></p>
+          </div>
+          <div id="invite-step-link" style="display:none;">
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;">Envie este link para ele(a) abrir e criar a conta:</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.3);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+              <strong id="invite-link-display" style="font-size:0.78rem;word-break:break-all;"></strong>
+              <button type="button" id="copy-invite-code-btn" class="secondary-btn"><i class="ti ti-copy"></i></button>
+            </div>
+            <button type="button" id="share-invite-link-btn" class="secondary-btn" style="width:100%;"><i class="ti ti-share"></i> Compartilhar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+  <section class="card-section">
+    <div class="history-header" style="margin-bottom:12px;">
+      <h3 style="margin:0;">Meta Geral do Mês</h3>
+    </div>
+    <div id="general-goal-container" style="margin-bottom:20px;"></div>
+    <div class="history-header" style="margin-bottom:12px;">
+      <h3 style="margin:0;">Meta Mensal por Categoria</h3>
+      <button type="button" id="add-goal-btn" class="secondary-btn"><i class="ti ti-plus"></i> Meta</button>
+    </div>
+    <div id="goals-container"></div>
+  </section>
+  <div class="top-fixed">
+    <div class="history-header" style="margin-bottom:2px;">
+      <select id="filter-summary-period" class="filter-select orange-border">
+        <option value="currentMonth">Resumo: Mês Atual</option>
+        <option value="allTime">Resumo: Total Geral</option>
+      </select>
+      </div>
+  </div>
+  <div class="balance-container-refinado">
+    <div class="balance-card-main">
+      <span>💰 Saldo Geral Atual</span>
+      <strong id="total-balance">R$ 0,00</strong>
+    </div>
+    <div class="balance-card-sub-grid">
+      <div class="balance-item-mini">
+        <span id="label-income">🟢 Receitas</span>
+        <strong id="total-income" class="income">R$ 0,00</strong>
+      </div>
+      <div class="balance-item-mini">
+        <span id="label-expense">🛑 Despesas</span>
+        <strong id="total-expense" class="expense">R$ 0,00</strong>
+      </div>
+      <div class="balance-item-mini">
+        <span>📊 Balanço Mês</span>
+        <strong id="monthly-balance">R$ 0,00</strong>
+      </div>
+    </div>
+  </div>
+  <div class="main-grid">
+    <div id="tx-modal-overlay" class="tx-modal-overlay">
+      <div class="tx-modal-sheet">
+        <div class="tx-modal-sheet-header">
+          <h3 id="tx-modal-title">Nova Transação</h3>
+          <button type="button" id="tx-modal-close-btn" class="tx-modal-close-btn" aria-label="Fechar">✕</button>
+        </div>
+        <div class="form-card" style="border:none;padding:0;box-shadow:none;">
+      <form id="finance-form">
+        <div class="form-group" style="margin-bottom:4px;">
+          <input type="number" inputmode="decimal" step="0.01" id="amount" placeholder="R$ 0,00" class="amount-input-hero" required autofocus/>
+        </div>
+        <div class="input-with-action">
+          <div id="voice-indicator" style="display:none;padding:12px;border-radius:10px;background:rgba(249,115,22,0.15);border:1px solid rgba(249,115,22,0.4);font-size:0.9rem;color:var(--accent);text-align:center;font-weight:600;">
+            <i class="ti ti-microphone"></i> Ouvindo... Fale agora
+            <br><small style="font-size:0.75rem;color:var(--text-muted);">Ex: "Mercado 50 reais despesa hoje"</small>
+          </div>
+          <input type="text" id="desc" placeholder="Descrição (ex: Mercado, Aluguel)" autocomplete="off" required/>
+          <button type="button" id="voice-input-btn" class="secondary-btn" aria-label="Lançamento por voz" title="Lançamento por voz"><i class="ti ti-microphone"></i> Voz</button>
+          <button type="button" id="add-launch-btn" class="secondary-btn catalog-toggle-btn" aria-expanded="false" aria-label="Abrir cadastro de categorias"><i class="ti ti-category"></i> Categorias</button>
+        </div>
+        <div id="form-message" class="form-message" role="status" aria-live="polite"></div>
+        <div id="desc-suggestions" class="suggestions"></div>
+        <div class="launch-panel">
+          <div class="launch-content collapsed">
+            <div class="catalog-section">
+              <div class="catalog-section-header">
+                <h3>Categorias</h3>
+                <button type="button" id="add-category-btn" class="secondary-btn" aria-label="Cadastrar categoria"><i class="ti ti-plus"></i> Cadastrar categoria</button>
+              </div>
+              <ul id="category-list"></ul>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <select id="category" aria-label="Categoria" style="flex:1 1 100%;"></select>
+        </div>
+        <div class="form-group">
+          <select id="type" style="flex:1 1 140px;">
+            <option value="expense">🛑 Despesa</option>
+            <option value="income">🟢 Receita</option>
+          </select>
+          <input type="date" id="due-date" style="flex:1 1 140px;" required/>
+        </div>
+        <div class="form-group">
+          <select id="payment-status" style="flex:1 1 100%;"></select>
+        </div>
+        <div class="form-group" style="align-items:center;gap:15px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="checkbox" id="repeat-transaction" style="width:16px;height:16px;accent-color:var(--accent);">
+            <label for="repeat-transaction" style="font-size:0.9rem;">Repetir lançamento</label>
+          </div>
+          <div id="repeat-options" class="form-group repeat-options-container">
+            <select id="repeatSelect">
+              <option value="monthly">Mensalmente</option>
+              <option value="yearly">Anualmente</option>
+            </select>
+            <input type="number" id="repeatCountSelect" min="1" max="100" step="1" value="1" placeholder="Qtde. de vezes (1-100)">
+          </div>
+        </div>
+        <button type="submit" class="tx-submit-btn"><i class="ti ti-plus"></i> Adicionar Transação</button>
+      </form>
+    </div>
+      </div>
+    </div>
+    <button type="button" class="fab-add-transacao" id="fab-add-transacao" title="Adicionar Transação">+</button>
+    <div class="history-panel">
+      <div class="history-header">
+        <div class="history-header-left">
+          <h2>Histórico</h2>
+          <select id="filter-payment-status" class="filter-select orange-border">
+            <option value="all">Todos os Lançamentos</option>
+            <option value="Pago">Filtrar: Pago</option>
+            <option value="Recebido">Filtrar: Recebido</option>
+            <option value="A pagar">Filtrar: A pagar</option>
+            <option value="A receber">Filtrar: A receber</option>
+          </select>
+        </div>
+        <div id="filtered-total-display" class="filtered-total">
+          <span>Total Filtrado</span>
+          <strong>R$ 0,00</strong>
+        </div>
+      </div>
+      <ul id="transactions-list" style="margin-top:10px;"></ul>
+    </div>
+  </div>
+</div>
+<div id="managerial-view" class="container" style="display:none;">
+  <header>
+    <div class="header-info">
+      <h1>Painel Gerencial</h1>
+      <p>Relatórios e Gráficos Mensais e Anuais</p>
+    </div>
+  </header>
+  <div class="form-card">
+    <div class="period-quick-filter">
+      <button type="button" class="period-chip" id="period-this-month" data-period="thisMonth">Este Mês</button>
+      <button type="button" class="period-chip" id="period-last-month" data-period="lastMonth">Mês Passado</button>
+      <button type="button" class="period-chip" id="period-custom" data-period="custom">Personalizado</button>
+    </div>
+    <div id="managerial-custom-filters" class="form-group" style="border-top:1px solid var(--border);margin-top:12px;padding-top:12px;display:none;">
+      <select id="managerial-month-filter" class="filter-select orange-border"></select>
+      <select id="managerial-year-filter" class="filter-select orange-border"></select>
+    </div>
+  </div>
+  <div class="form-card">
+    <div class="history-header" style="margin-bottom:12px;">
+      <h2>Relatório do Mês</h2>
+      <div class="export-buttons-wrap">
+        <span class="export-label">Exportar relatório:</span>
+        <div class="export-buttons">
+          <button type="button" id="export-csv-btn" class="secondary-btn export-btn"><i class="ti ti-file-text"></i> CSV</button>
+          <button type="button" id="export-xlsx-btn" class="secondary-btn export-btn"><i class="ti ti-file-spreadsheet"></i> XLSX</button>
+          <button type="button" id="export-pdf-btn" class="secondary-btn export-btn"><i class="ti ti-file-pdf"></i> PDF</button>
+        </div>
+      </div>
+    </div>
+    <div class="report-accordion">
+      <button class="report-toggle danger" data-report="pending-expense" aria-expanded="false">
+        <div class="report-toggle-info"><span>A Pagar</span><span class="report-toggle-icon">▼</span></div>
+        <strong id="report-pending-expense-header" class="report-toggle-value">R$ 0,00</strong>
+      </button>
+      <ul id="report-pending-expense-list" class="report-list collapsed"></ul>
+    </div>
+    <div class="report-accordion">
+      <button class="report-toggle danger" data-report="paid-expense" aria-expanded="false">
+        <div class="report-toggle-info"><span>Pago</span><span class="report-toggle-icon">▼</span></div>
+        <strong id="report-paid-expense-header" class="report-toggle-value">R$ 0,00</strong>
+      </button>
+      <ul id="report-paid-expense-list" class="report-list collapsed"></ul>
+    </div>
+    <div class="report-accordion">
+      <button class="report-toggle primary" data-report="pending-income" aria-expanded="false">
+        <div class="report-toggle-info"><span>A Receber</span><span class="report-toggle-icon">▼</span></div>
+        <strong id="report-pending-income-header" class="report-toggle-value">R$ 0,00</strong>
+      </button>
+      <ul id="report-pending-income-list" class="report-list collapsed"></ul>
+    </div>
+    <div class="report-accordion">
+      <button class="report-toggle primary" data-report="paid-income" aria-expanded="false">
+        <div class="report-toggle-info"><span>Recebido</span><span class="report-toggle-icon">▼</span></div>
+        <strong id="report-paid-income-header" class="report-toggle-value">R$ 0,00</strong>
+      </button>
+      <ul id="report-paid-income-list" class="report-list collapsed"></ul>
+    </div>
+  </div>
+  <div class="form-card" id="managerial-user-filter-card" style="display:none;">
+    <div class="history-header" style="margin-bottom:12px;">
+      <h2>Lançamentos por Pessoa</h2>
+    </div>
+    <div class="container-filtros-usuario" id="filtros-usuario-container">
+      <button type="button" id="btn-user-geral" class="btn-usuario-filtro ativo" data-filtro="geral">Geral</button>
+    </div>
+    <div id="resumo-usuario-selecionado" class="resumo-usuario-grid" style="display:none;">
+      <div class="resumo-usuario-item">
+        <span>🟢 Receitas</span>
+        <strong id="resumo-usuario-receitas" class="income">R$ 0,00</strong>
+      </div>
+      <div class="resumo-usuario-item">
+        <span>🛑 Despesas</span>
+        <strong id="resumo-usuario-despesas" class="expense">R$ 0,00</strong>
+      </div>
+      <div class="resumo-usuario-item">
+        <span>💰 Saldo</span>
+        <strong id="resumo-usuario-saldo">R$ 0,00</strong>
+      </div>
+    </div>
+    <div class="container-tabela-gerencial">
+      <table class="tabela-gerencial-usuario">
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th>Valor</th>
+            <th style="text-align:right;">Quem</th>
+          </tr>
+        </thead>
+        <tbody id="corpo-tabela-gerencial"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="form-card">
+    <div class="history-header"><h2>Gráfico Mensal de Despesas por Categoria</h2></div>
+    <canvas id="monthly-expenses-chart"></canvas>
+  </div>
+  <div class="form-card">
+    <div class="history-header"><h2>Gráfico Anual de Despesas por Categoria</h2></div>
+    <canvas id="yearly-expenses-chart"></canvas>
+  </div>
+</div>
+<nav class="bottom-nav" id="bottom-nav" style="display:none;">
+  <button type="button" class="bottom-nav-item active" data-nav="home">
+    <i class="ti ti-smart-home"></i>
+    <span>Home</span>
+  </button>
+  <button type="button" class="bottom-nav-item" data-nav="gerencial">
+    <i class="ti ti-chart-bar"></i>
+    <span>Relatórios</span>
+  </button>
+  <button type="button" class="bottom-nav-item" data-nav="metas">
+    <i class="ti ti-target-arrow"></i>
+    <span>Metas</span>
+  </button>
+  <button type="button" class="bottom-nav-item" data-nav="ajustes">
+    <i class="ti ti-settings-automation"></i>
+    <span>Ajustes</span>
+  </button>
+</nav>
+<div id="goal-modal-overlay" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h3 id="goal-modal-title">Nova meta por categoria</h3>
+    <div class="modal-field" id="goal-modal-category-field">
+      <label for="goal-modal-category">Categoria</label>
+      <select id="goal-modal-category"></select>
+    </div>
+    <p id="goal-modal-category-label" class="modal-static-label hidden"></p>
+    <div class="modal-field">
+      <label for="goal-modal-value">Valor da meta (R$)</label>
+      <input type="number" id="goal-modal-value" min="0.01" step="0.01" placeholder="0,00">
+    </div>
+    <p id="goal-modal-error" class="form-message error"></p>
+    <div class="modal-actions">
+      <button type="button" id="goal-modal-cancel" class="secondary-btn">Cancelar</button>
+      <button type="button" id="goal-modal-save">Salvar</button>
+    </div>
+  </div>
+</div>
+<div id="category-modal-overlay" class="modal-overlay hidden">
+  <div class="modal-card">
+    <h3>Nova categoria</h3>
+    <div class="modal-field">
+      <label for="category-modal-name">Nome da categoria</label>
+      <input id="category-modal-name" type="text" maxlength="40" placeholder="Ex.: Casa" />
+    </div>
+    <div class="modal-field">
+      <label>Escolha um ícone</label>
+      <div id="category-icon-picker" class="icon-picker">
+        <button type="button" id="category-icon-trigger" class="icon-picker-trigger" aria-expanded="false" aria-label="Escolher ícone">
+          <span><i id="category-selected-icon" class="ti ti-category"></i> Escolher ícone</span>
+          <i class="ti ti-chevron-down"></i>
+        </button>
+        <div id="category-icon-library" class="icon-library"></div>
+      </div>
+    </div>
+    <p id="category-modal-error" class="form-message error"></p>
+    <div class="category-modal-actions">
+      <button type="button" id="category-modal-cancel" class="secondary-btn">Cancelar</button>
+      <button type="button" id="category-modal-save">Salvar</button>
+    </div>
+  </div>
+</div>
+<script type="importmap">
+{
+  "imports": {
+    "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm"
+  }
+}
+</script>
+<script type="module">
+// ============================================================
+// SUPABASE CONFIG
+// ============================================================
+import { createClient } from '@supabase/supabase-js';
+
+const SUPABASE_URL = "https://jxrjabgoawxeewqyzjsy.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_cXjqobaTFseLRxp9KZ2B1Q_Js1h2rbW";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============================================================
+// LIMPEZA DE SERVICE WORKER ANTIGO (TEMPORÁRIO)
+// Versões anteriores registravam um Service Worker que fazia cache
+// do index.html e servia páginas desatualizadas. Esta chamada força
+// o navegador a buscar a versão "kill switch" do service-worker.js,
+// que se auto-remove. Pode remover este bloco daqui a algumas
+// semanas, quando a maioria dos usuários já tiver passado por aqui.
+// ============================================================
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js').catch(() => {});
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let currentUser = null;
+let currentProfile = null;
+let currentAccountType = 'individual';
+let currentCasalId = null;
+let globalData = {};
+let launchCatalog = {};
+let categoryCatalog = {};
+let goalsCatalog = {};
+let isCasalCreator = false;
+let lastMemberCount = 0;
+let lastMembrosRaw = [];
+let editingTransactionId = null;
+let editingLaunchId = null;
+let selectedLaunchId = null;
+let biometricSessionUnlocked = false;
+let pendingBiometricUser = null;
+let expectedBiometricEmail = '';
+let currentUserDisplayName = '';
+let conviteCasalIdFromUrl = new URLSearchParams(window.location.search).get('convite') || localStorage.getItem('convitePendente') || '';
+let chartMensal = null;
+let chartAnual = null;
+let managerialUserFilter = 'geral';
+let managerialPeriodMode = 'thisMonth';
+let isListening = false;
+let recognition = null;
+let fotoPerfilPendente = '';
+let goalModalEditingId = null;
+
+if (conviteCasalIdFromUrl && !new URLSearchParams(window.location.search).get('convite')) {
+  const newUrl = new URL(window.location.href);
+  newUrl.searchParams.set('convite', conviteCasalIdFromUrl);
+  window.history.replaceState({}, document.title, newUrl);
+} else if (conviteCasalIdFromUrl) {
+  localStorage.setItem('convitePendente', conviteCasalIdFromUrl);
+}
+
+// ============================================================
+// DOM REFS
+// ============================================================
+const authView = document.getElementById('auth-view');
+const mainView = document.getElementById('main-view');
+const managerialView = document.getElementById('managerial-view');
+const biometricLockView = document.getElementById('biometric-lock-view');
+const bottomNav = document.getElementById('bottom-nav');
+const fabAddTransacao = document.getElementById('fab-add-transacao');
+const loginForm = document.getElementById('login-form');
+const signupForm = document.getElementById('signup-form');
+const authSwitchBtn = document.getElementById('auth-switch-btn');
+const authMessage = document.getElementById('auth-message');
+const logoutBtn = document.getElementById('logout-btn');
+const deleteAccountBtn = document.getElementById('delete-account-btn');
+const menuPopover = document.getElementById('menu-popover');
+const notificationBtn = document.getElementById('notification-btn');
+const notificationCount = document.getElementById('notification-count');
+const notificationPopover = document.getElementById('notification-popover');
+const notificationList = document.getElementById('notification-list');
+const inviteBtn = document.getElementById('invite-btn');
+const invitePopover = document.getElementById('invite-popover');
+const coupleActivateBtn = document.getElementById('couple-activate-btn');
+const coupleActivatePopover = document.getElementById('couple-activate-popover');
+const coupleActivateConfirmBtn = document.getElementById('couple-activate-confirm-btn');
+const coupleActivateErrorMsg = document.getElementById('couple-activate-error-msg');
+const coupleNameEle = document.getElementById('couple-name-ele');
+const coupleNameEla = document.getElementById('couple-name-ela');
+const biometricToggleBtn = document.getElementById('biometric-toggle-btn');
+const voiceToggleBtn = document.getElementById('voice-toggle-btn');
+const form = document.getElementById('finance-form');
+const list = document.getElementById('transactions-list');
+const filterPaymentStatus = document.getElementById('filter-payment-status');
+const filterSummaryPeriod = document.getElementById('filter-summary-period');
+const descInput = document.getElementById('desc');
+const suggestionsBox = document.getElementById('desc-suggestions');
+const launchList = document.getElementById('launch-list');
+const addLaunchBtn = document.getElementById('add-launch-btn');
+const categoryList = document.getElementById('category-list');
+const categorySelect = document.getElementById('category');
+const addCategoryBtn = document.getElementById('add-category-btn');
+const submitButton = form.querySelector('button[type="submit"]');
+const txModalOverlay = document.getElementById('tx-modal-overlay');
+const txModalCloseBtn = document.getElementById('tx-modal-close-btn');
+const txModalTitle = document.getElementById('tx-modal-title');
+const goalModalOverlay = document.getElementById('goal-modal-overlay');
+const goalModalTitle = document.getElementById('goal-modal-title');
+const goalModalCategoryField = document.getElementById('goal-modal-category-field');
+const goalModalCategorySelect = document.getElementById('goal-modal-category');
+const goalModalCategoryLabel = document.getElementById('goal-modal-category-label');
+const goalModalValueInput = document.getElementById('goal-modal-value');
+const goalModalError = document.getElementById('goal-modal-error');
+const goalModalSaveBtn = document.getElementById('goal-modal-save');
+const goalModalCancelBtn = document.getElementById('goal-modal-cancel');
+const categoryModalOverlay = document.getElementById('category-modal-overlay');
+const categoryModalName = document.getElementById('category-modal-name');
+const categoryIconPicker = document.getElementById('category-icon-picker');
+const categoryIconTrigger = document.getElementById('category-icon-trigger');
+const categorySelectedIcon = document.getElementById('category-selected-icon');
+const categoryIconLibrary = document.getElementById('category-icon-library');
+const categoryModalError = document.getElementById('category-modal-error');
+const categoryModalCancelBtn = document.getElementById('category-modal-cancel');
+const categoryModalSaveBtn = document.getElementById('category-modal-save');
+const generalGoalContainer = document.getElementById('general-goal-container');
+const goalsContainer = document.getElementById('goals-container');
+const managerialMonthFilter = document.getElementById('managerial-month-filter');
+const managerialYearFilter = document.getElementById('managerial-year-filter');
+const periodChips = document.querySelectorAll('.period-chip');
+const managerialCustomFilters = document.getElementById('managerial-custom-filters');
+const managerialUserFilterCard = document.getElementById('managerial-user-filter-card');
+const filtrosUsuarioContainer = document.getElementById('filtros-usuario-container');
+const corpoTabelaGerencial = document.getElementById('corpo-tabela-gerencial');
+const resumoUsuarioSelecionado = document.getElementById('resumo-usuario-selecionado');
+const resumoUsuarioReceitas = document.getElementById('resumo-usuario-receitas');
+const resumoUsuarioDespesas = document.getElementById('resumo-usuario-despesas');
+const resumoUsuarioSaldo = document.getElementById('resumo-usuario-saldo');
+const voiceInputBtn = document.getElementById('voice-input-btn');
+const voiceIndicator = document.getElementById('voice-indicator');
+const perfilFotoPreview = document.getElementById('perfil-foto-preview');
+const inputFotoGaleria = document.getElementById('input-foto-galeria');
+const inputFotoCameraTraseira = document.getElementById('input-foto-camera-traseira');
+const inputFotoCameraFrontal = document.getElementById('input-foto-camera-frontal');
+const btnEscolherGaleria = document.getElementById('btn-escolher-galeria');
+const btnCameraTraseira = document.getElementById('btn-camera-traseira');
+const btnCameraFrontal = document.getElementById('btn-camera-frontal');
+const btnSalvarFoto = document.getElementById('btn-salvar-foto');
+const inviteStepEmail = document.getElementById('invite-step-email');
+const inviteStepLink = document.getElementById('invite-step-link');
+const invitePartnerEmail = document.getElementById('invite-partner-email');
+const invitePartnerPhone = document.getElementById('invite-partner-phone');
+const generateInviteLinkBtn = document.getElementById('generate-invite-link-btn');
+const inviteErrorMsg = document.getElementById('invite-error-msg');
+const inviteLinkDisplay = document.getElementById('invite-link-display');
+const copyInviteCodeBtn = document.getElementById('copy-invite-code-btn');
+const shareInviteLinkBtn = document.getElementById('share-invite-link-btn');
+const inviteMethodEmailBtn = document.getElementById('invite-method-email-btn');
+const inviteMethodPhoneBtn = document.getElementById('invite-method-phone-btn');
+const inviteEmailField = document.getElementById('invite-email-field');
+const invitePhoneField = document.getElementById('invite-phone-field');
+const authInviteMessage = document.getElementById('auth-invite-message');
+const forgotPasswordBtn = document.getElementById('forgot-password-btn');
+const forgotPasswordBox = document.getElementById('forgot-password-box');
+const forgotPasswordEmail = document.getElementById('forgot-password-email');
+const sendResetEmailBtn = document.getElementById('send-reset-email-btn');
+const forgotPasswordMessage = document.getElementById('forgot-password-message');
+const biometricUnlockBtn = document.getElementById('biometric-unlock-btn');
+const biometricUsePasswordBtn = document.getElementById('biometric-use-password-btn');
+const biometricLockMessage = document.getElementById('biometric-lock-message');
+const biometricLockEmail = document.getElementById('biometric-lock-email');
+const biometricHint = document.getElementById('biometric-hint');
+const rememberMeCheckbox = document.getElementById('remember-me');
+const loginEmailInput = document.getElementById('login-email');
+const avatarHeader = document.getElementById('avatar-header');
+
+// ============================================================
+// HELPERS
+// ============================================================
+const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const MONTH_NAMES_PT = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+
+const defaultCategories = [
+  { id: 'geral', name: 'Geral', icon: 'ti ti-category' },
+  { id: 'alimentacao', name: 'Alimentação', icon: 'ti ti-shopping-cart' },
+  { id: 'transporte', name: 'Transporte', icon: 'ti ti-car' },
+  { id: 'contas', name: 'Contas', icon: 'ti ti-bulb' },
+  { id: 'lazer', name: 'Lazer', icon: 'ti ti-confetti' },
+  { id: 'salario', name: 'Salário', icon: 'ti ti-wallet' },
+  { id: 'saude', name: 'Saúde', icon: 'ti ti-heartbeat' }
+];
+
+const categoryIconOptions = [
+  'ti ti-category', 'ti ti-shopping-cart', 'ti ti-car', 'ti ti-home', 'ti ti-bulb', 'ti ti-wallet',
+  'ti ti-heartbeat', 'ti ti-pill', 'ti ti-school', 'ti ti-device-gamepad-2', 'ti ti-plane', 'ti ti-gift',
+  'ti ti-tools', 'ti ti-phone', 'ti ti-wifi', 'ti ti-building-store', 'ti ti-paw', 'ti ti-coffee'
+];
+
+function createCategoryIcon(icon, className = '') {
+  const iconEl = document.createElement('i');
+  if (String(icon || '').startsWith('ti ')) {
+    iconEl.className = `${icon} ${className}`.trim();
+  } else {
+    iconEl.textContent = icon || '🏷️';
+    iconEl.className = className;
+  }
+  return iconEl;
+}
+
+function categoryIconMarkup(icon) {
+  return String(icon || '').startsWith('ti ') ? `<i class="${icon}"></i>` : (icon || '🏷️');
+}
+
+function todayDatePart(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateParts(value) {
+  return String(value || '').split('-').map(Number);
+}
+
+function formatDateLabel(value) {
+  if (!value) return 'Sem data';
+  const [year, month, day] = parseDateParts(value);
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${String(year)}`;
+}
+
+function toDateOnly(value) {
+  if (!value) return null;
+  const [year, month, day] = parseDateParts(value);
+  return new Date(Date.UTC(year, month - 1, day));
+}
+
+function getAutoPaymentStatus(dueDateValue, type) {
+  if (!dueDateValue) return type === 'income' ? 'A receber' : 'A pagar';
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const dueDate = toDateOnly(dueDateValue);
+  if (!dueDate) return type === 'income' ? 'A receber' : 'A pagar';
+  if (type === 'income') return dueDate < todayStart ? 'Recebido' : 'A receber';
+  return dueDate < todayStart ? 'Pago' : 'A pagar';
+}
+
+function getTransactionType(item) {
+  const type = String(item?.type || '').trim().toLocaleLowerCase('pt-BR');
+  return ['income', 'receita', 'receitas', 'entrada', 'entradas'].includes(type) ? 'income' : 'expense';
+}
+
+function resolvePaymentStatus(item) {
+  const type = getTransactionType(item);
+  if (item.statusSource === 'manual') {
+    return item.paymentStatus || (type === 'income' ? 'A receber' : 'A pagar');
+  }
+  return getAutoPaymentStatus(item.dueDate, type);
+}
+
+function getCategoryIcon(categoryName) {
+  const category = Object.values(categoryCatalog).find((item) => item?.name === categoryName);
+  return category?.icon || defaultCategories.find((item) => item.name === categoryName)?.icon || '🏷️';
+}
+
+function getCategoryEntries() {
+  return Object.entries(categoryCatalog).sort((a, b) => (a[1]?.name || '').localeCompare(b[1]?.name || ''));
+}
+
+function getGoalColor(pct) {
+  if (pct >= 100) return { bar: '#f87171', label: 'LIMITE ESTOURADO', cls: 'over' };
+  if (pct >= 75) return { bar: '#f97316', label: 'ALERTA', cls: 'alert' };
+  return { bar: '#34d399', label: 'DENTRO DO LIMITE', cls: 'ok' };
+}
+
+function getGoalStatus(spent, limit) {
+  if (!(limit > 0)) return null;
+  const pct = (spent / limit) * 100;
+  if (pct >= 100) return { cls: 'over', label: 'LIMITE ESTOURADO' };
+  if (pct >= 75) return { cls: 'alert', label: 'ALERTA' };
+  return { cls: 'ok', label: 'DENTRO DO LIMITE' };
+}
+
+function setAuthMessage(message) {
+  authMessage.textContent = message || '';
+}
+
+function formatAuthError(error) {
+  const messages = {
+    'auth/invalid-credential': 'E-mail ou senha inválidos.',
+    'auth/invalid-email': 'Informe um e-mail válido.',
+    'auth/email-already-in-use': 'Este e-mail já possui uma conta.',
+    'auth/weak-password': 'A senha deve ter pelo menos 6 caracteres.',
+    'auth/operation-not-allowed': 'O login por e-mail e senha ainda não está ativado.',
+    'auth/user-not-found': 'Usuário não encontrado.',
+    invalid_credentials: 'E-mail ou senha inválidos.',
+    email_exists: 'Este e-mail já possui uma conta.',
+    user_already_exists: 'Este e-mail já possui uma conta.',
+    weak_password: 'A senha não atende aos requisitos do Supabase.',
+    email_address_invalid: 'Informe um e-mail válido.',
+    signup_disabled: 'O cadastro por e-mail está desativado no Supabase.'
+  };
+  if (messages[error?.code]) return messages[error.code];
+  if (messages[error?.status]) return messages[error.status];
+  return error?.message || 'Não foi possível concluir a operação. Tente novamente.';
+}
+
+function showFormMessage(text, type) {
+  const el = document.getElementById('form-message');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'form-message';
+  if (text) el.classList.add('show');
+  if (type === 'error') el.classList.add('error');
+  if (type === 'success') el.classList.add('success');
+}
+
+function setBottomNavActive(name) {
+  document.querySelectorAll('.bottom-nav-item').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.nav === name);
+  });
+}
+
+function getCurrentUser() { return currentUser; }
+
+function updatePaymentStatusOptions(type) {
+  const sel = document.getElementById('payment-status');
+  const current = sel.value;
+  sel.innerHTML = '';
+  const options = type === 'income'
+    ? [['auto', 'Automático'], ['Recebido', 'Recebido'], ['A receber', 'A receber']]
+    : [['auto', 'Automático'], ['Pago', 'Pago'], ['A pagar', 'A pagar']];
+  options.forEach(([value, label]) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    sel.appendChild(opt);
+  });
+  const exists = options.some(([v]) => v === current);
+  sel.value = exists ? current : 'auto';
+}
+
+function toggleLaunchPanel() {
+  const isExpanded = addLaunchBtn.getAttribute('aria-expanded') === 'true';
+  addLaunchBtn.setAttribute('aria-expanded', String(!isExpanded));
+  document.querySelector('.launch-content').classList.toggle('collapsed', isExpanded);
+}
+
+function renderizarSaudacaoPersonalizada(nomeUsuario) {
+  const hora = new Date().getHours();
+  let saudacao = '', descritivo = '';
+  const nome = nomeUsuario || 'amigo(a)';
+  if (hora >= 5 && hora < 12) { saudacao = 'Bom dia,'; descritivo = 'que bom estar de volta! ✨'; }
+  else if (hora >= 12 && hora < 18) { saudacao = 'Boa tarde,'; descritivo = 'que bom te ver de novo! 👋'; }
+  else { saudacao = 'Boa noite,'; descritivo = 'vamos conferir os gastos de hoje? 🌙'; }
+  const linha1El = document.getElementById('saudacao-linha-1');
+  const linha2El = document.getElementById('saudacao-linha-2');
+  if (linha1El) linha1El.innerHTML = `<span style="color:var(--text-muted);">${saudacao}</span> <span style="color:var(--text-muted);">${descritivo}</span>`;
+  if (linha2El) { linha2El.textContent = nome; linha2El.style.color = 'var(--accent)'; }
+}
+
+function aplicarAvatarNoHeader(url) {
+  if (!avatarHeader) return;
+  const fallback = document.getElementById('avatar-header-fallback');
+  if (fallback) fallback.remove();
+  if (url) { avatarHeader.style.display = 'block'; avatarHeader.src = url; }
+  else { avatarHeader.style.display = 'none'; avatarHeader.removeAttribute('src'); }
+}
+
+async function renderizarAvatarHeader() {
+  if (!currentUser) return;
+  const key = `avatarUrl_${currentUser.id}`;
+  let url = localStorage.getItem(key) || '';
+  if (!url && currentProfile?.avatar_url) {
+    url = currentProfile.avatar_url;
+    localStorage.setItem(key, url);
+  }
+  aplicarAvatarNoHeader(url);
+  if (perfilFotoPreview && url) perfilFotoPreview.src = url;
+}
+
+async function showAuthenticatedApp(profile, user) {
+  let title, subtitle;
+  if (currentAccountType === 'couple') {
+    const casalName = [profile?.nome_ele, profile?.nome_ela].filter(Boolean).join(' & ');
+    title = casalName || 'Finanças do Casal';
+    subtitle = 'Gestão Compartilhada em Tempo Real';
+  } else {
+    title = profile?.full_name || user?.email?.split('@')[0] || 'Minhas Finanças';
+    subtitle = 'Gestão Financeira Pessoal';
+  }
+  renderizarSaudacaoPersonalizada(title);
+  await renderizarAvatarHeader();
+  authView.style.display = 'none';
+  managerialView.style.display = 'none';
+  mainView.style.display = 'flex';
+  if (bottomNav) bottomNav.style.display = 'flex';
+  if (fabAddTransacao) fabAddTransacao.style.display = 'flex';
+  setBottomNavActive('home');
+}
+
+function updateInviteButtonVisibility() {
+  if (!inviteBtn) return;
+  const shouldShow = currentAccountType === 'couple' && isCasalCreator && lastMemberCount < 2;
+  inviteBtn.style.display = shouldShow ? 'grid' : 'none';
+  inviteBtn.style.opacity = shouldShow ? '1' : '0';
+  inviteBtn.style.pointerEvents = shouldShow ? 'auto' : 'none';
+  if (!shouldShow) {
+    inviteBtn.setAttribute('aria-expanded', 'false');
+    invitePopover?.classList.remove('show');
+    inviteBtn.title = lastMemberCount >= 2 ? '✅ Casal completo!' : 'Convidar parceiro(a)';
+  } else {
+    inviteBtn.title = 'Convidar parceiro(a)';
+  }
+}
+
+function updateDeleteButtonUI() {
+  if (!deleteAccountBtn) return;
+  if (currentAccountType === 'couple') {
+    if (!isCasalCreator) { deleteAccountBtn.style.display = 'none'; return; }
+    deleteAccountBtn.style.display = '';
+    if (lastMemberCount >= 2) {
+      deleteAccountBtn.innerHTML = '<i class="ti ti-user-minus"></i> Excluir Parceiro(a)';
+    } else {
+      deleteAccountBtn.innerHTML = '<i class="ti ti-trash"></i> Excluir Conta';
+    }
+  } else {
+    deleteAccountBtn.style.display = '';
+    deleteAccountBtn.innerHTML = '<i class="ti ti-trash"></i> Excluir Conta';
+  }
+}
+
+function showAuthentication() {
+  mainView.style.display = 'none';
+  managerialView.style.display = 'none';
+  if (biometricLockView) {
+    biometricLockView.style.display = 'none';
+    biometricLockView.classList.add('hidden');
+  }
+  if (bottomNav) bottomNav.style.display = 'none';
+  if (fabAddTransacao) fabAddTransacao.style.display = 'none';
+  if (txModalOverlay) txModalOverlay.classList.remove('active');
+  authView.style.display = 'grid';
+  authView.classList.remove('hidden');
+  setAuthMode(false);
+  document.getElementById('login-password').value = '';
+  setAuthMessage('');
+}
+
+function setAuthMode(isSignup) {
+  document.getElementById('auth-card').classList.toggle('signup-mode', isSignup);
+  loginForm.classList.toggle('hidden', isSignup);
+  signupForm.classList.toggle('hidden', !isSignup);
+  document.getElementById('auth-title').textContent = isSignup ? 'Criar conta' : 'Login';
+  document.getElementById('auth-subtitle').textContent = isSignup ? 'Crie um espaço financeiro privado para você.' : 'Entre para acessar suas finanças.';
+  authSwitchBtn.textContent = isSignup ? 'Já tenho uma conta' : 'Criar uma conta';
+  setAuthMessage('');
+  forgotPasswordBox?.classList.add('hidden');
+}
+
+function resetTransactionForm() {
+  form.reset();
+  editingTransactionId = null;
+  selectedLaunchId = null;
+  document.getElementById('type').value = 'expense';
+  updatePaymentStatusOptions('expense');
+  document.getElementById('category').value = 'Geral';
+  document.getElementById('repeat-options').style.display = 'none';
+  document.getElementById('repeatSelect').value = 'monthly';
+  document.getElementById('repeatCountSelect').value = 1;
+  submitButton.innerHTML = '<i class="ti ti-plus"></i> Adicionar Transação';
+  showFormMessage('', '');
+  renderSuggestions();
+  descInput.focus();
+}
+
+function openTransactionModal() {
+  txModalTitle.textContent = editingTransactionId ? 'Editar Transação' : 'Nova Transação';
+  txModalOverlay.classList.add('active');
+}
+
+function closeTransactionModal() {
+  txModalOverlay.classList.remove('active');
+  if (editingTransactionId) resetTransactionForm();
+}
+
+function flashAiFilled(inputEl) {
+  if (!inputEl) return;
+  inputEl.classList.remove('ai-filled');
+  void inputEl.offsetWidth;
+  inputEl.classList.add('ai-filled');
+  setTimeout(() => inputEl.classList.remove('ai-filled'), 1600);
+}
+
+function showGoalModalError(message) {
+  goalModalError.textContent = message;
+  goalModalError.classList.toggle('show', Boolean(message));
+}
+
+function closeGoalModal() {
+  goalModalOverlay.classList.add('hidden');
+  goalModalEditingId = null;
+}
+
+function openGoalModal(editingId = null, existingGoal = null) {
+  goalModalEditingId = editingId;
+  showGoalModalError('');
+  goalModalValueInput.value = existingGoal ? (existingGoal.limit_value || '') : '';
+  if (editingId) {
+    goalModalTitle.textContent = `Editar meta: ${existingGoal.category_name}`;
+    goalModalCategoryField.classList.add('hidden');
+    goalModalCategoryLabel.classList.remove('hidden');
+    goalModalCategoryLabel.textContent = `${getCategoryIcon(existingGoal.category_name)} ${existingGoal.category_name}`;
+  } else {
+    goalModalTitle.textContent = 'Nova meta por categoria';
+    goalModalCategoryField.classList.remove('hidden');
+    goalModalCategoryLabel.classList.add('hidden');
+    const usedCategories = new Set(Object.values(goalsCatalog).map((g) => g?.category_name));
+    const availableEntries = getCategoryEntries().filter(([_, cat]) => !usedCategories.has(cat.name));
+    goalModalCategorySelect.innerHTML = '';
+    if (!availableEntries.length) {
+      showGoalModalError('Todas as categorias já possuem uma meta definida.');
+      const option = document.createElement('option');
+      option.textContent = 'Nenhuma categoria disponível';
+      option.disabled = true;
+      goalModalCategorySelect.appendChild(option);
+    } else {
+      availableEntries.forEach(([_, cat]) => {
+        const option = document.createElement('option');
+        option.value = cat.name;
+        option.textContent = cat.name;
+        goalModalCategorySelect.appendChild(option);
+      });
+    }
+  }
+  goalModalOverlay.classList.remove('hidden');
+  goalModalValueInput.focus();
+}
+
+// ============================================================
+// DATA FUNCTIONS
+// ============================================================
+
+async function loadAllData() {
+  if (!currentUser) return;
+
+  // Load transactions
+  const { data: transactions, error: txError } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('user_id', currentUser.id);
+
+  if (!txError && transactions) {
+    globalData = {};
+    transactions.forEach((t) => { globalData[t.id] = t; });
+  }
+
+  // Load launches
+  const { data: launches, error: lError } = await supabase
+    .from('launches')
+    .select('*')
+    .eq('user_id', currentUser.id);
+
+  if (!lError && launches) {
+    launchCatalog = {};
+    launches.forEach((l) => { launchCatalog[l.id] = l; });
+  }
+
+  // Load categories
+  const { data: categories, error: cError } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('user_id', currentUser.id);
+
+  if (!cError && categories && categories.length > 0) {
+    categoryCatalog = {};
+    categories.forEach((c) => { categoryCatalog[c.id] = c; });
+  } else if (!categories || categories.length === 0) {
+    // Seed default categories
+    for (const cat of defaultCategories) {
+      await supabase.from('categories').insert({
+        name: cat.name,
+        icon: cat.icon,
+        type: 'expense',
+        user_id: currentUser.id
+      });
+    }
+    // Reload
+    const { data: newCats } = await supabase
+      .from('categories')
+      .select('*')
+      .eq('user_id', currentUser.id);
+    if (newCats) {
+      categoryCatalog = {};
+      newCats.forEach((c) => { categoryCatalog[c.id] = c; });
+    }
+  }
+
+  // Load goals
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  const { data: goals, error: gError } = await supabase
+    .from('goals')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .eq('month', currentMonth)
+    .eq('year', currentYear);
+
+  if (!gError && goals) {
+    goalsCatalog = {};
+    goals.forEach((g) => { goalsCatalog[g.id] = g; });
+  }
+
+  renderList();
+  renderGoals();
+  atualizarBarrasProgressoMetas();
+  renderCategories();
+  renderLaunchCatalog();
+  renderSuggestions();
+  renderNotifications();
+  renderManagerialData();
+  updateInviteButtonVisibility();
+  updateDeleteButtonUI();
+}
+
+// ============================================================
+// RENDER FUNCTIONS
+// ============================================================
+
+function renderList() {
+  list.innerHTML = '';
+  let incomeSum = 0, expenseSum = 0, monthlyIncomeSum = 0, monthlyExpenseSum = 0, filteredTotal = 0;
+  const selectedFilter = filterPaymentStatus.value;
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  Object.keys(globalData).forEach((id) => {
+    const item = globalData[id];
+    if (!item) return;
+    const amount = Number(item.amount) || 0;
+    if (item.type === 'income') incomeSum += amount;
+    if (item.type === 'expense') expenseSum += amount;
+
+    if (filterSummaryPeriod.value === 'currentMonth' && item.due_date) {
+      const [year, month] = parseDateParts(item.due_date);
+      const itemDate = new Date(year, month - 1, 1);
+      if (itemDate.getMonth() === currentMonth && itemDate.getFullYear() === currentYear) {
+        if (item.type === 'income') monthlyIncomeSum += amount;
+        if (item.type === 'expense') monthlyExpenseSum += amount;
+      }
+    }
+
+    if (selectedFilter !== 'all' && resolvePaymentStatus(item) !== selectedFilter) return;
+    filteredTotal += amount;
+
+    const icon = getCategoryIcon(item.category) || (item.type === 'income' ? '💵' : '💳');
+    const paymentStatus = resolvePaymentStatus(item);
+    const statusClass = (paymentStatus === 'Pago' || paymentStatus === 'Recebido') ? 'paid' : 'pending';
+
+    const li = document.createElement('li');
+    const left = document.createElement('div');
+    left.className = 'item-left';
+    const iconEl = document.createElement('div');
+    iconEl.className = 'category-icon';
+    iconEl.appendChild(createCategoryIcon(icon));
+    const details = document.createElement('div');
+    details.className = 'item-details';
+    const title = document.createElement('strong');
+    title.textContent = item.description || '';
+    const cat = document.createElement('small');
+    cat.textContent = item.category || 'Geral';
+    details.appendChild(title);
+    details.appendChild(cat);
+    if (item.due_date) {
+      const dateSmall = document.createElement('small');
+      dateSmall.textContent = `Previsto para: ${formatDateLabel(item.due_date)}`;
+      details.appendChild(dateSmall);
+    }
+    if (currentAccountType === 'couple' && item.created_by) {
+      const creatorBadge = document.createElement('span');
+      creatorBadge.className = 'creator-badge';
+      creatorBadge.textContent = `🙋 Lançado por: ${item.created_by}`;
+      details.appendChild(creatorBadge);
+    }
+    const statusBtn = document.createElement('button');
+    statusBtn.type = 'button';
+    statusBtn.className = `status-toggle ${statusClass}`;
+    statusBtn.dataset.id = id;
+    statusBtn.textContent = paymentStatus;
+    details.appendChild(statusBtn);
+    left.appendChild(iconEl);
+    left.appendChild(details);
+
+    const right = document.createElement('div');
+    right.className = 'item-right';
+    const valueSpan = document.createElement('span');
+    valueSpan.className = `item-value ${item.type}`;
+    const sign = item.type === 'expense' ? '-' : '+';
+    valueSpan.textContent = `${sign} ${currencyFormatter.format(amount)}`;
+    const actions = document.createElement('div');
+    actions.className = 'item-actions';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'edit-btn';
+    editBtn.type = 'button';
+    editBtn.dataset.transactionId = id;
+    editBtn.innerHTML = '<i class="ti ti-edit"></i>';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.type = 'button';
+    deleteBtn.innerHTML = '<i class="ti ti-trash"></i>';
+    deleteBtn.dataset.deleteId = id;
+    actions.appendChild(editBtn);
+    actions.appendChild(deleteBtn);
+    right.appendChild(valueSpan);
+    right.appendChild(actions);
+    li.appendChild(left);
+    li.appendChild(right);
+    list.appendChild(li);
+  });
+
+  document.querySelector('#filtered-total-display strong').textContent = currencyFormatter.format(filteredTotal);
+  const totalBalance = incomeSum - expenseSum;
+  const totalBalanceEl = document.getElementById('total-balance');
+  totalBalanceEl.innerText = currencyFormatter.format(totalBalance);
+
+  if (filterSummaryPeriod.value === 'currentMonth') {
+    document.getElementById('total-income').innerText = currencyFormatter.format(monthlyIncomeSum);
+    document.getElementById('total-expense').innerText = currencyFormatter.format(monthlyExpenseSum);
+    document.getElementById('monthly-balance').innerText = currencyFormatter.format(monthlyIncomeSum - monthlyExpenseSum);
+    document.getElementById('label-income').innerHTML = '🟢 Receitas do Mês';
+    document.getElementById('label-expense').innerHTML = '🛑 Despesas do Mês';
+  } else {
+    document.getElementById('total-income').innerText = currencyFormatter.format(incomeSum);
+    document.getElementById('total-expense').innerText = currencyFormatter.format(expenseSum);
+    document.getElementById('monthly-balance').innerText = currencyFormatter.format(totalBalance);
+    document.getElementById('label-income').innerHTML = '🟢 Receitas Gerais';
+    document.getElementById('label-expense').innerHTML = '🛑 Despesas Gerais';
+  }
+
+  const balanceForColor = filterSummaryPeriod.value === 'currentMonth' ? (monthlyIncomeSum - monthlyExpenseSum) : totalBalance;
+  totalBalanceEl.style.color = balanceForColor >= 0 ? 'var(--primary)' : 'var(--danger)';
+  renderNotifications();
+}
+
+function renderCategories() {
+  const entries = getCategoryEntries();
+  const selectedValue = categorySelect.value || 'Geral';
+  categorySelect.innerHTML = '';
+  categoryList.innerHTML = '';
+
+  entries.forEach(([id, category]) => {
+    const name = category.name || 'Sem nome';
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    option.dataset.categoryId = id;
+    categorySelect.appendChild(option);
+
+    const li = document.createElement('li');
+    li.className = 'launch-item';
+    const details = document.createElement('div');
+    details.className = 'item-details';
+    const title = document.createElement('strong');
+    title.textContent = name;
+    title.prepend(createCategoryIcon(getCategoryIcon(name)));
+    details.appendChild(title);
+    const actions = document.createElement('div');
+    actions.className = 'launch-actions';
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'edit-btn';
+    editBtn.dataset.categoryId = id;
+    editBtn.innerHTML = '<i class="ti ti-edit"></i>';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.dataset.categoryId = id;
+    deleteBtn.innerHTML = '<i class="ti ti-trash"></i>';
+    actions.append(editBtn, deleteBtn);
+    li.append(details, actions);
+    categoryList.appendChild(li);
+  });
+
+  const exists = entries.some(([_, cat]) => cat.name === selectedValue);
+  categorySelect.value = exists ? selectedValue : (entries.find(([_, cat]) => cat.name === 'Geral')?.[1]?.name || entries[0]?.[1]?.name || '');
+}
+
+function renderLaunchCatalog() {
+  if (!launchList) return;
+  launchList.innerHTML = '';
+  const entries = Object.entries(launchCatalog || {}).sort((a, b) => (a[1]?.label || '').localeCompare(b[1]?.label || ''));
+  if (!entries.length) {
+    const placeholder = document.createElement('li');
+    placeholder.className = 'launch-placeholder';
+    placeholder.textContent = 'Nenhum modelo cadastrado ainda.';
+    launchList.appendChild(placeholder);
+    return;
+  }
+  entries.forEach(([id, item]) => {
+    const li = document.createElement('li');
+    li.className = 'launch-item';
+    const details = document.createElement('div');
+    details.className = 'item-details';
+    const title = document.createElement('strong');
+    title.textContent = item.label || '';
+    const meta = document.createElement('small');
+    meta.textContent = item.category ? `${item.category} • ${item.type === 'income' ? 'Receita' : 'Despesa'}` : item.type;
+    details.appendChild(title);
+    details.appendChild(meta);
+    const actions = document.createElement('div');
+    actions.className = 'launch-actions';
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'edit-btn';
+    editBtn.dataset.launchId = id;
+    editBtn.innerHTML = '<i class="ti ti-edit"></i>';
+    const deleteBtn = document.createElement('button');
+    deleteBtn.type = 'button';
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.dataset.launchId = id;
+    deleteBtn.innerHTML = '<i class="ti ti-trash"></i>';
+    actions.appendChild(editBtn);
+    actions.appendChild(deleteBtn);
+    li.appendChild(details);
+    li.appendChild(actions);
+    launchList.appendChild(li);
+  });
+}
+
+function renderSuggestions() {
+  const query = descInput.value.trim().toLowerCase();
+  suggestionsBox.innerHTML = '';
+  suggestionsBox.classList.remove('show');
+  if (!query) return;
+  const matches = Object.entries(launchCatalog || {}).filter(([_, item]) => (item.label || '').toLowerCase().includes(query))
+    .sort((a, b) => (a[1].label || '').localeCompare(b[1].label || '')).slice(0, 6);
+  if (matches.length) {
+    matches.forEach(([id, item]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'suggestion-item';
+      btn.dataset.launchId = id;
+      btn.textContent = item.label || '';
+      suggestionsBox.appendChild(btn);
+    });
+    suggestionsBox.classList.add('show');
+  }
+}
+
+function renderGoals() {
+  if (!goalsContainer || !generalGoalContainer) return;
+  goalsContainer.innerHTML = '';
+  generalGoalContainer.innerHTML = '';
+
+  const { total, byCategory } = getCurrentMonthExpenses();
+
+  // General goal
+  let generalGoal = null;
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  Object.values(goalsCatalog).forEach((g) => {
+    if (g.category_name === 'geral' && g.month === currentMonth && g.year === currentYear) {
+      generalGoal = g;
+    }
+  });
+  const generalLimit = generalGoal?.limit_value || 0;
+
+  generalGoalContainer.appendChild(buildGoalItem({
+    icon: '🎯',
+    name: 'Valor Total do Mês',
+    hasGoal: generalLimit > 0,
+    spent: total,
+    limit: generalLimit,
+    onEdit: () => editGeneralGoal(),
+    onRemove: () => removeGeneralGoal(),
+    emptyText: 'Nenhuma meta geral definida.'
+  }));
+
+  // Category goals
+  const categoryGoals = Object.values(goalsCatalog).filter((g) => g.category_name !== 'geral');
+  if (!categoryGoals.length) {
+    const empty = document.createElement('p');
+    empty.className = 'goal-empty';
+    empty.style.cssText = 'background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin:0;';
+    empty.textContent = 'Nenhuma meta por categoria. Use "+ Meta" para adicionar.';
+    goalsContainer.appendChild(empty);
+    return;
+  }
+
+  categoryGoals.forEach((goal) => {
+    const categoryName = goal.category_name || 'Categoria';
+    const limit = Number(goal.limit_value) || 0;
+    const spent = byCategory[categoryName] || 0;
+    goalsContainer.appendChild(buildGoalItem({
+      icon: getCategoryIcon(categoryName),
+      name: categoryName,
+      hasGoal: true,
+      spent,
+      limit,
+      onEdit: () => editCategoryGoal(goal.id, goal),
+      onRemove: () => removeCategoryGoal(goal.id, categoryName),
+      emptyText: ''
+    }));
+  });
+  atualizarBarrasProgressoMetas();
+}
+
+function buildGoalItem({ icon, name, onEdit, onRemove, hasGoal, spent, limit, emptyText }) {
+  const item = document.createElement('div');
+  item.className = 'goal-item';
+  item.dataset.role = 'goal-item';
+  item.dataset.categoryName = name;
+  item.dataset.spent = String(spent || 0);
+  item.dataset.limit = String(limit || 0);
+
+  const header = document.createElement('div');
+  header.className = 'goal-item-header';
+  const nameWrap = document.createElement('div');
+  nameWrap.className = 'goal-name-wrap';
+  const nameEl = document.createElement('span');
+  nameEl.className = 'goal-name';
+  nameEl.textContent = name;
+  nameEl.prepend(createCategoryIcon(icon));
+  nameWrap.appendChild(nameEl);
+
+  if (hasGoal) {
+    const status = getGoalStatus(spent, limit);
+    if (status) {
+      const tag = document.createElement('span');
+      tag.className = `goal-status-tag ${status.cls}`;
+      tag.dataset.role = 'goal-status-tag';
+      tag.textContent = status.label;
+      nameWrap.appendChild(tag);
+    }
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'goal-item-actions';
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.innerHTML = hasGoal ? '<i class="ti ti-edit"></i>' : '<i class="ti ti-plus"></i> Definir';
+  editBtn.title = hasGoal ? 'Editar meta' : 'Definir meta';
+  if (!hasGoal) editBtn.classList.add('define-btn');
+  editBtn.addEventListener('click', onEdit);
+  actions.appendChild(editBtn);
+  if (hasGoal && onRemove) {
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.innerHTML = '<i class="ti ti-trash"></i>';
+    removeBtn.title = 'Remover meta';
+    removeBtn.addEventListener('click', onRemove);
+    actions.appendChild(removeBtn);
+  }
+  header.append(nameWrap, actions);
+  item.appendChild(header);
+
+  if (hasGoal) {
+    item.appendChild(createGoalBar(spent, limit));
+  } else {
+    const empty = document.createElement('p');
+    empty.className = 'goal-empty';
+    empty.textContent = emptyText;
+    item.appendChild(empty);
+  }
+  return item;
+}
+
+function createGoalBar(current, limit) {
+  const track = document.createElement('div');
+  track.className = 'goal-bar-track';
+  track.dataset.role = 'goal-bar-track';
+  const realPct = limit > 0 ? (current / limit) * 100 : 0;
+  const visualPct = Math.min(100, realPct);
+  const fill = document.createElement('div');
+  fill.className = 'goal-bar-fill';
+  const colorInfo = getGoalColor(realPct);
+  fill.dataset.role = 'goal-bar-fill';
+  fill.style.background = colorInfo.bar;
+  fill.style.width = `${visualPct}%`;
+  const label = document.createElement('div');
+  label.className = 'goal-bar-label';
+  label.dataset.role = 'goal-bar-label';
+  const pctRounded = Math.round(realPct);
+  label.textContent = `${currencyFormatter.format(current)} de ${currencyFormatter.format(limit)} (${pctRounded}% gasto)`;
+  track.append(fill, label);
+  return track;
+}
+
+function atualizarBarrasProgressoMetas() {
+  try {
+    const { total, byCategory } = getCurrentMonthExpenses();
+
+    const containers = [
+      { root: generalGoalContainer, spent: total, categoryName: 'Valor Total do Mês' },
+      { root: goalsContainer, spentMap: byCategory }
+    ];
+
+    containers.forEach((entry) => {
+      if (!entry.root) return;
+      const items = entry.root.querySelectorAll('[data-role="goal-item"]');
+      items.forEach((item) => {
+        const name = item.dataset.categoryName || '';
+        let limit = Number(item.dataset.limit || 0);
+        let spent = entry.spentMap ? Number(entry.spentMap[name] || 0) : Number(entry.spent || 0);
+
+        // Find goal in catalog
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+        let goal = null;
+        if (name === 'Valor Total do Mês') {
+          Object.values(goalsCatalog).forEach((g) => {
+            if (g.category_name === 'geral' && g.month === currentMonth && g.year === currentYear) {
+              goal = g;
+            }
+          });
+        } else {
+          Object.values(goalsCatalog).forEach((g) => {
+            if (g.category_name === name && g.month === currentMonth && g.year === currentYear) {
+              goal = g;
+            }
+          });
+        }
+        if (goal) {
+          limit = Number(goal.limit_value) || 0;
+          item.dataset.limit = String(limit);
+        }
+
+        const pct = limit > 0 ? (spent / limit) * 100 : 0;
+        const visualPct = Math.min(100, pct);
+        const fill = item.querySelector('[data-role="goal-bar-fill"]');
+        const labelEl = item.querySelector('[data-role="goal-bar-label"]');
+        const statusEl = item.querySelector('[data-role="goal-status-tag"]');
+        const colorInfo = getGoalColor(pct);
+        if (fill) {
+          fill.style.width = `${visualPct}%`;
+          fill.style.background = colorInfo.bar;
+        }
+        if (labelEl) {
+          labelEl.textContent = `${currencyFormatter.format(spent)} de ${currencyFormatter.format(limit)} (${Math.round(pct)}% gasto)`;
+        }
+        if (statusEl) {
+          statusEl.classList.remove('ok', 'alert', 'over');
+          statusEl.classList.add(colorInfo.cls);
+          statusEl.textContent = colorInfo.label;
+        }
+        item.dataset.spent = String(spent);
+      });
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar barras de progresso:', error);
+  }
+}
+
+function getCurrentMonthExpenses() {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const result = { total: 0, byCategory: {} };
+  Object.values(globalData || {}).forEach((item) => {
+    if (!item || getTransactionType(item) !== 'expense' || !item.due_date) return;
+    const [year, month] = parseDateParts(item.due_date);
+    if (!year || !month) return;
+    const itemDate = new Date(year, month - 1, 1);
+    if (itemDate.getMonth() !== currentMonth || itemDate.getFullYear() !== currentYear) return;
+    const amount = Number(item.amount) || 0;
+    const category = item.category || 'Geral';
+    result.total += amount;
+    result.byCategory[category] = (result.byCategory[category] || 0) + amount;
+  });
+  return result;
+}
+
+function renderNotifications() {
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const limitDate = new Date(todayStart);
+  limitDate.setDate(limitDate.getDate() + 2);
+
+  const notifications = Object.entries(globalData || {}).filter(([_, item]) => {
+    if (!item?.due_date) return false;
+    const dueDate = new Date(`${item.due_date}T00:00:00`);
+    if (isNaN(dueDate.getTime())) return false;
+    if (dueDate < todayStart || dueDate > limitDate) return false;
+    const status = resolvePaymentStatus(item);
+    return status === 'A pagar' || status === 'A receber';
+  }).sort((a, b) => a[1].due_date.localeCompare(b[1].due_date));
+
+  notificationList.innerHTML = '';
+  notificationCount.textContent = notifications.length > 99 ? '99+' : notifications.length;
+  notificationCount.classList.toggle('show', notifications.length > 0);
+
+  if (!notifications.length) {
+    const emptyItem = document.createElement('li');
+    emptyItem.textContent = 'Não há vencimentos nos próximos 2 dias.';
+    notificationList.appendChild(emptyItem);
+    return;
+  }
+
+  notifications.forEach(([_, item]) => {
+    const li = document.createElement('li');
+    const title = document.createElement('strong');
+    title.textContent = item.description || 'Lançamento sem descrição';
+    const date = document.createElement('small');
+    const isToday = item.due_date === todayDatePart(new Date());
+    date.textContent = `${isToday ? 'Vence hoje' : 'Vence em breve'}: ${formatDateLabel(item.due_date)}`;
+    li.append(title, date);
+    notificationList.appendChild(li);
+  });
+}
+
+function renderManagerialData() {
+  if (!globalData) return;
+  const { month: selectedMonth, year: selectedYear } = getSelectedPeriod();
+  const monthlyTransactions = Object.entries(globalData).filter(([_, item]) => {
+    if (!item.due_date) return false;
+    const [year, month] = parseDateParts(item.due_date);
+    return year === selectedYear && (month - 1) === selectedMonth;
+  });
+  const yearlyTransactions = Object.entries(globalData).filter(([_, item]) => {
+    if (!item?.due_date) return false;
+    const [year] = parseDateParts(item.due_date);
+    return year === selectedYear;
+  });
+
+  renderManagerialReport(monthlyTransactions);
+  renderManagerialChart('monthly-expenses-chart', monthlyTransactions, 'monthly');
+  renderManagerialChart('yearly-expenses-chart', yearlyTransactions, 'yearly');
+  renderUserFilterButtons();
+  renderTabelaGerencialPorUsuario();
+}
+
+function getSelectedPeriod() {
+  return {
+    month: parseInt(managerialMonthFilter.value, 10),
+    year: parseInt(managerialYearFilter.value, 10)
+  };
+}
+
+function getReportTransactions() {
+  if (!globalData) return [];
+  const { month: selectedMonth, year: selectedYear } = getSelectedPeriod();
+  return Object.entries(globalData).filter(([_, item]) => {
+    if (!item?.due_date) return false;
+    const [year, month] = parseDateParts(item.due_date);
+    return year === selectedYear && (month - 1) === selectedMonth;
+  }).map(([id, item]) => ({
+    id,
+    descricao: item.description || '',
+    categoria: item.category || 'Geral',
+    tipo: getTransactionType(item) === 'expense' ? 'Despesa' : 'Receita',
+    valor: Number(item.amount) || 0,
+    data: item.due_date || '',
+    status: resolvePaymentStatus(item),
+    criadoPor: item.created_by || ''
+  })).sort((a, b) => a.data.localeCompare(b.data));
+}
+
+function renderManagerialReport(transactions) {
+  const pendingExpenseList = document.getElementById('report-pending-expense-list');
+  const paidExpenseList = document.getElementById('report-paid-expense-list');
+  const pendingIncomeList = document.getElementById('report-pending-income-list');
+  const paidIncomeList = document.getElementById('report-paid-income-list');
+
+  const pendingExpenses = transactions.filter(([_, item]) => getTransactionType(item) === 'expense' && resolvePaymentStatus(item) === 'A pagar');
+  const paidExpenses = transactions.filter(([_, item]) => getTransactionType(item) === 'expense' && resolvePaymentStatus(item) === 'Pago');
+  const pendingIncomes = transactions.filter(([_, item]) => getTransactionType(item) === 'income' && resolvePaymentStatus(item) === 'A receber');
+  const paidIncomes = transactions.filter(([_, item]) => getTransactionType(item) === 'income' && resolvePaymentStatus(item) === 'Recebido');
+
+  const pendingExpenseTotal = createReportSection(pendingExpenseList, pendingExpenses);
+  const paidExpenseTotal = createReportSection(paidExpenseList, paidExpenses);
+  const pendingIncomeTotal = createReportSection(pendingIncomeList, pendingIncomes);
+  const paidIncomeTotal = createReportSection(paidIncomeList, paidIncomes);
+
+  updateReportHeader('report-pending-expense-header', pendingExpenseTotal);
+  updateReportHeader('report-paid-expense-header', paidExpenseTotal);
+  updateReportHeader('report-pending-income-header', pendingIncomeTotal);
+  updateReportHeader('report-paid-income-header', paidIncomeTotal);
+}
+
+function createReportSection(listElement, items) {
+  listElement.innerHTML = '';
+  let total = 0;
+  if (items.length === 0) {
+    const emptyItem = document.createElement('li');
+    emptyItem.textContent = 'Nenhum lançamento.';
+    listElement.appendChild(emptyItem);
+    return total;
+  }
+  items.forEach(([_, item]) => {
+    total += Number(item.amount) || 0;
+    const li = document.createElement('li');
+    const left = document.createElement('div');
+    left.className = 'item-left';
+    const details = document.createElement('div');
+    details.className = 'item-details';
+    const description = document.createElement('strong');
+    description.textContent = item.description || 'Sem descrição';
+    const date = document.createElement('small');
+    date.textContent = formatDateLabel(item.due_date);
+    details.append(description, date);
+    left.appendChild(details);
+    const right = document.createElement('div');
+    right.className = 'item-right';
+    const value = document.createElement('span');
+    const type = getTransactionType(item);
+    value.className = `item-value ${type}`;
+    value.textContent = `${type === 'expense' ? '-' : '+'} ${currencyFormatter.format(Number(item.amount) || 0)}`;
+    right.appendChild(value);
+    li.append(left, right);
+    listElement.appendChild(li);
+  });
+  return total;
+}
+
+function updateReportHeader(elementId, total) {
+  const header = document.getElementById(elementId);
+  if (header) header.textContent = currencyFormatter.format(total);
+}
+
+function renderManagerialChart(canvasId, transactions, period) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas || typeof Chart === 'undefined') return;
+  const ctx = canvas.getContext('2d');
+
+  const expensesByCategory = transactions.filter(([_, item]) => getTransactionType(item) === 'expense').reduce((acc, [_, item]) => {
+    const category = item.category || 'Geral';
+    acc[category] = (acc[category] || 0) + Number(item.amount);
+    return acc;
+  }, {});
+
+  const labels = Object.keys(expensesByCategory);
+  const data = Object.values(expensesByCategory);
+  const defaultPalette = ['#f97316', '#06b6d4', '#a855f7', '#e11d48', '#10b981', '#34d399', '#f59e0b', '#6366f1'];
+  const backgroundColors = labels.map((_, i) => defaultPalette[i % defaultPalette.length]);
+
+  const previousChart = period === 'monthly' ? chartMensal : chartAnual;
+  if (previousChart) previousChart.destroy();
+
+  const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Despesas por Categoria',
+        data,
+        backgroundColor: backgroundColors,
+        borderWidth: 1,
+        borderRadius: 8
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { beginAtZero: true, ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        y: { ticks: { color: 'white' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+
+  if (period === 'monthly') chartMensal = chart;
+  else chartAnual = chart;
+}
+
+function renderUserFilterButtons() {
+  if (!managerialUserFilterCard || !filtrosUsuarioContainer) return;
+  if (currentAccountType !== 'couple') {
+    managerialUserFilterCard.style.display = 'none';
+    return;
+  }
+  const nomes = Object.values(globalData || {}).map((item) => item?.created_by).filter(Boolean);
+  const uniqueNomes = [...new Set(nomes)];
+  managerialUserFilterCard.style.display = uniqueNomes.length ? 'block' : 'none';
+
+  if (!uniqueNomes.includes(managerialUserFilter) && managerialUserFilter !== 'geral') {
+    managerialUserFilter = 'geral';
+  }
+
+  filtrosUsuarioContainer.innerHTML = '';
+  const geralBtn = document.createElement('button');
+  geralBtn.type = 'button';
+  geralBtn.className = `btn-usuario-filtro${managerialUserFilter === 'geral' ? ' ativo' : ''}`;
+  geralBtn.dataset.filtro = 'geral';
+  geralBtn.textContent = 'Geral';
+  filtrosUsuarioContainer.appendChild(geralBtn);
+
+  uniqueNomes.forEach((nome) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `btn-usuario-filtro${managerialUserFilter === nome ? ' ativo' : ''}`;
+    btn.dataset.filtro = nome;
+    btn.textContent = nome;
+    filtrosUsuarioContainer.appendChild(btn);
+  });
+}
+
+function renderTabelaGerencialPorUsuario() {
+  if (!corpoTabelaGerencial) return;
+  const transacoesDoMes = getReportTransactions();
+  let dadosFiltrados = transacoesDoMes;
+  if (managerialUserFilter !== 'geral') {
+    dadosFiltrados = transacoesDoMes.filter((t) => t.criadoPor === managerialUserFilter);
+  }
+
+  if (resumoUsuarioSelecionado) {
+    if (managerialUserFilter === 'geral') {
+      resumoUsuarioSelecionado.style.display = 'none';
+    } else {
+      const receitas = dadosFiltrados.filter((t) => t.tipo === 'Receita').reduce((sum, t) => sum + t.valor, 0);
+      const despesas = dadosFiltrados.filter((t) => t.tipo === 'Despesa').reduce((sum, t) => sum + t.valor, 0);
+      resumoUsuarioReceitas.textContent = currencyFormatter.format(receitas);
+      resumoUsuarioDespesas.textContent = currencyFormatter.format(despesas);
+      resumoUsuarioSaldo.textContent = currencyFormatter.format(receitas - despesas);
+      resumoUsuarioSaldo.style.color = 'var(--accent)';
+      resumoUsuarioSelecionado.style.display = 'grid';
+    }
+  }
+
+  corpoTabelaGerencial.innerHTML = '';
+  if (dadosFiltrados.length === 0) {
+    corpoTabelaGerencial.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-muted);">Nenhum lançamento encontrado.</td></tr>`;
+    return;
+  }
+
+  dadosFiltrados.forEach((t) => {
+    const corValor = t.tipo === 'Receita' ? '#22c55e' : '#ef4444';
+    const sinal = t.tipo === 'Receita' ? '+' : '-';
+    const tr = document.createElement('tr');
+    const tdDesc = document.createElement('td');
+    tdDesc.textContent = t.descricao;
+    const tdValor = document.createElement('td');
+    tdValor.style.color = corValor;
+    tdValor.style.fontWeight = 'bold';
+    tdValor.textContent = `${sinal} ${currencyFormatter.format(t.valor)}`;
+    const tdQuem = document.createElement('td');
+    tdQuem.className = 'col-quem';
+    tdQuem.textContent = t.criadoPor || '—';
+    tr.append(tdDesc, tdValor, tdQuem);
+    corpoTabelaGerencial.appendChild(tr);
+  });
+}
+
+function populateManagerialFilters() {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  managerialMonthFilter.innerHTML = '';
+  const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+  months.forEach((month, index) => {
+    const option = document.createElement('option');
+    option.value = index;
+    option.textContent = month;
+    if (index === currentMonth) option.selected = true;
+    managerialMonthFilter.appendChild(option);
+  });
+  managerialYearFilter.innerHTML = '';
+  for (let year = currentYear + 1; year >= currentYear - 5; year--) {
+    const option = document.createElement('option');
+    option.value = year;
+    option.textContent = year;
+    if (year === currentYear) option.selected = true;
+    managerialYearFilter.appendChild(option);
+  }
+}
+
+function setManagerialPeriodMode(mode) {
+  managerialPeriodMode = mode;
+  periodChips.forEach((chip) => chip.classList.toggle('active', chip.dataset.period === mode));
+  managerialCustomFilters.style.display = mode === 'custom' ? 'flex' : 'none';
+  const now = new Date();
+  if (mode === 'thisMonth') {
+    managerialMonthFilter.value = now.getMonth();
+    managerialYearFilter.value = now.getFullYear();
+  } else if (mode === 'lastMonth') {
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    managerialMonthFilter.value = lastMonthDate.getMonth();
+    managerialYearFilter.value = lastMonthDate.getFullYear();
+  }
+  renderManagerialData();
+}
+
+// ============================================================
+// CRUD OPERATIONS
+// ============================================================
+
+async function addTransaction(desc, amount, type, paymentStatus, statusSource, category, dueDate, repeat, repeatCount) {
+  const payload = {
+    description: desc,
+    amount: amount,
+    type: type,
+    payment_status: paymentStatus,
+    status_source: statusSource || 'auto',
+    due_date: dueDate || null,
+    category: category || 'Geral',
+    created_by: currentUserDisplayName || 'Parceiro',
+    user_id: currentUser.id
+  };
+
+  if (editingTransactionId) {
+    const { error } = await supabase
+      .from('transactions')
+      .update(payload)
+      .eq('id', editingTransactionId)
+      .eq('user_id', currentUser.id);
+    if (error) throw error;
+  } else {
+    if (repeat && repeatCount > 1) {
+      const [initialYear, initialMonth, initialDay] = parseDateParts(dueDate);
+      for (let i = 0; i < repeatCount; i++) {
+        let nextDate = new Date(initialYear, initialMonth - 1, initialDay);
+        if (repeat === 'monthly') nextDate.setMonth(nextDate.getMonth() + i);
+        else if (repeat === 'yearly') nextDate.setFullYear(nextDate.getFullYear() + i);
+        const formattedDueDate = todayDatePart(nextDate);
+        const itemPayload = {
+          ...payload,
+          description: `${desc} (${i + 1}/${repeatCount})`,
+          due_date: formattedDueDate,
+          payment_status: getAutoPaymentStatus(formattedDueDate, type),
+          status_source: 'auto'
+        };
+        const { error } = await supabase.from('transactions').insert(itemPayload);
+        if (error) throw error;
+      }
+    } else {
+      const { error } = await supabase.from('transactions').insert(payload);
+      if (error) throw error;
+    }
+
+    // TODO: PUSH NOTIFICATION - Disabled temporarily
+    // Will be re-enabled with Edge Function later
+  }
+  await loadAllData();
+}
+
+async function updateTransactionStatus(id, newStatus) {
+  const item = globalData?.[id];
+  if (!item) return;
+  const { error } = await supabase
+    .from('transactions')
+    .update({ payment_status: newStatus, status_source: 'manual' })
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
+  if (error) throw error;
+
+  if ((newStatus === 'Pago' || newStatus === 'Recebido') && item.repeat_type) {
+    const [year, month, day] = parseDateParts(item.due_date);
+    let nextDueDate;
+    if (item.repeat_type === 'monthly') {
+      nextDueDate = new Date(year, month - 1, day);
+      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+    } else {
+      nextDueDate = new Date(year + 1, month - 1, day);
+    }
+    const newPayload = {
+      ...item,
+      due_date: todayDatePart(nextDueDate),
+      payment_status: item.type === 'income' ? 'A receber' : 'A pagar',
+      status_source: 'auto'
+    };
+    delete newPayload.id;
+    const { error: insertError } = await supabase.from('transactions').insert(newPayload);
+    if (insertError) throw insertError;
+  }
+  await loadAllData();
+}
+
+async function deleteTransaction(id) {
+  if (!confirm('Excluir este lançamento? Esta ação não pode ser desfeita.')) return;
+  const { error } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
+  if (error) throw error;
+  if (editingTransactionId === id) resetTransactionForm();
+  await loadAllData();
+}
+
+async function saveLaunch(label, type, paymentStatus, category) {
+  const payload = {
+    label,
+    type,
+    payment_status: paymentStatus,
+    category,
+    user_id: currentUser.id,
+    couple_id: currentCasalId || null
+  };
+
+  if (editingLaunchId) {
+    const { error } = await supabase
+      .from('launches')
+      .update(payload)
+      .eq('id', editingLaunchId)
+      .eq('user_id', currentUser.id);
+    if (error) throw error;
+    editingLaunchId = null;
+    addLaunchBtn.textContent = 'Cadastro – Categorias';
+  } else {
+    const { error } = await supabase.from('launches').insert(payload);
+    if (error) throw error;
+  }
+  await loadAllData();
+}
+
+async function deleteLaunchTemplate(id) {
+  if (!confirm('Excluir este modelo de lançamento?')) return;
+  const { error } = await supabase
+    .from('launches')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
+  if (error) throw error;
+  if (editingLaunchId === id) {
+    editingLaunchId = null;
+    addLaunchBtn.textContent = 'Cadastro – Categorias';
+  }
+  await loadAllData();
+}
+
+async function saveCategory(name) {
+  const normalizedName = name.trim();
+  if (!normalizedName) return;
+  const exists = getCategoryEntries().some(([_, cat]) => cat.name.toLowerCase() === normalizedName.toLowerCase());
+  if (exists) { alert('Já existe uma categoria com este nome.'); return; }
+  const { error } = await supabase
+    .from('categories')
+    .insert({
+      name: normalizedName,
+      type: 'expense',
+      user_id: currentUser.id
+    });
+  if (error) throw error;
+  await loadAllData();
+}
+
+function closeCategoryModal() {
+  categoryModalOverlay.classList.add('hidden');
+  categoryIconPicker.classList.remove('open');
+  categoryIconTrigger.setAttribute('aria-expanded', 'false');
+  categoryModalError.textContent = '';
+  categoryModalName.value = '';
+}
+
+function openCategoryModal() {
+  categoryModalName.value = '';
+  categoryModalError.textContent = '';
+  categoryIconPicker.classList.remove('open');
+  categoryIconTrigger.setAttribute('aria-expanded', 'false');
+  categorySelectedIcon.className = categoryIconOptions[0];
+  categoryIconLibrary.innerHTML = '';
+  categoryIconOptions.forEach((icon) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'icon-choice';
+    button.dataset.icon = icon;
+    button.title = icon.replace('ti ti-', '').replaceAll('-', ' ');
+    button.setAttribute('aria-label', button.title);
+    button.innerHTML = `<i class="${icon}"></i>`;
+    button.addEventListener('click', () => {
+      categoryIconLibrary.querySelectorAll('.icon-choice').forEach((item) => item.classList.remove('selected'));
+      button.classList.add('selected');
+      categorySelectedIcon.className = icon;
+      categoryIconPicker.classList.remove('open');
+      categoryIconTrigger.setAttribute('aria-expanded', 'false');
+    });
+    categoryIconLibrary.appendChild(button);
+  });
+  categoryIconLibrary.querySelector('.icon-choice')?.classList.add('selected');
+  categoryModalOverlay.classList.remove('hidden');
+  categoryModalName.focus();
+}
+
+async function createCategoryFromModal() {
+  const name = categoryModalName.value.trim();
+  const icon = categoryIconLibrary.querySelector('.icon-choice.selected')?.dataset.icon || categoryIconOptions[0];
+  if (!name) {
+    categoryModalError.textContent = 'Informe o nome da categoria.';
+    return;
+  }
+  const exists = getCategoryEntries().some(([_, cat]) => cat.name.toLowerCase() === name.toLowerCase());
+  if (exists) {
+    categoryModalError.textContent = 'Já existe uma categoria com este nome.';
+    return;
+  }
+  categoryModalSaveBtn.disabled = true;
+  try {
+    const { error } = await supabase.from('categories').insert({
+      name,
+      icon,
+      type: 'expense',
+      user_id: currentUser.id
+    });
+    if (error) throw error;
+    closeCategoryModal();
+    await loadAllData();
+  } catch (error) {
+    categoryModalError.textContent = error.message || 'Não foi possível salvar a categoria.';
+  } finally {
+    categoryModalSaveBtn.disabled = false;
+  }
+}
+
+async function editCategory(id) {
+  const category = categoryCatalog[id];
+  if (!category) return;
+  const newName = prompt('Nome da categoria:', category.name || '');
+  if (newName === null || newName.trim() === category.name) return;
+  const normalizedName = newName.trim();
+  if (!normalizedName) return;
+  const exists = getCategoryEntries().some(([otherId, cat]) => otherId !== id && cat.name.toLowerCase() === normalizedName.toLowerCase());
+  if (exists) { alert('Já existe uma categoria com este nome.'); return; }
+
+  const { error } = await supabase
+    .from('categories')
+    .update({ name: normalizedName })
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
+  if (error) throw error;
+
+  // Update transactions and launches
+  const { data: txData } = await supabase
+    .from('transactions')
+    .select('id')
+    .eq('category', category.name)
+    .eq('user_id', currentUser.id);
+  if (txData && txData.length > 0) {
+    const txIds = txData.map((t) => t.id);
+    const { error: txError } = await supabase
+      .from('transactions')
+      .update({ category: normalizedName })
+      .in('id', txIds);
+    if (txError) throw txError;
+  }
+
+  const { data: launchData } = await supabase
+    .from('launches')
+    .select('id')
+    .eq('category', category.name)
+    .eq('user_id', currentUser.id);
+  if (launchData && launchData.length > 0) {
+    const launchIds = launchData.map((l) => l.id);
+    const { error: launchError } = await supabase
+      .from('launches')
+      .update({ category: normalizedName })
+      .in('id', launchIds);
+    if (launchError) throw launchError;
+  }
+  await loadAllData();
+}
+
+async function deleteCategory(id) {
+  const category = categoryCatalog[id];
+  const entries = getCategoryEntries();
+  if (!category || entries.length <= 1) { alert('Mantenha pelo menos uma categoria cadastrada.'); return; }
+  const replacement = entries.find(([otherId]) => otherId !== id) || entries[0];
+  if (!confirm(`Excluir a categoria "${category.name}"? Os lançamentos vinculados serão movidos para "${replacement[1].name}".`)) return;
+
+  const { error } = await supabase
+    .from('categories')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
+  if (error) throw error;
+
+  // Move transactions
+  const { data: txData } = await supabase
+    .from('transactions')
+    .select('id')
+    .eq('category', category.name)
+    .eq('user_id', currentUser.id);
+  if (txData && txData.length > 0) {
+    const txIds = txData.map((t) => t.id);
+    await supabase
+      .from('transactions')
+      .update({ category: replacement[1].name })
+      .in('id', txIds);
+  }
+
+  const { data: launchData } = await supabase
+    .from('launches')
+    .select('id')
+    .eq('category', category.name)
+    .eq('user_id', currentUser.id);
+  if (launchData && launchData.length > 0) {
+    const launchIds = launchData.map((l) => l.id);
+    await supabase
+      .from('launches')
+      .update({ category: replacement[1].name })
+      .in('id', launchIds);
+  }
+  await loadAllData();
+}
+
+async function saveGoal(categoryName, limitValue, editingId = null) {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+
+  const payload = {
+    category_name: categoryName,
+    limit_value: limitValue,
+    month: month,
+    year: year,
+    user_id: currentUser.id,
+    couple_id: currentCasalId || null
+  };
+
+  if (editingId) {
+    const { error } = await supabase
+      .from('goals')
+      .update(payload)
+      .eq('id', editingId)
+      .eq('user_id', currentUser.id);
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('goals')
+      .insert(payload);
+    if (error) throw error;
+  }
+  await loadAllData();
+}
+
+async function removeGoal(id) {
+  const { error } = await supabase
+    .from('goals')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', currentUser.id);
+  if (error) throw error;
+  await loadAllData();
+}
+
+async function editGeneralGoal() {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  let existingGoal = null;
+  Object.values(goalsCatalog).forEach((g) => {
+    if (g.category_name === 'geral' && g.month === month && g.year === year) {
+      existingGoal = g;
+    }
+  });
+
+  const current = existingGoal?.limit_value || '';
+  const rawValue = prompt('Meta geral de gastos do mês (R$):', current || '');
+  const numeric = parseFloat(String(rawValue).trim().replace(',', '.'));
+  if (isNaN(numeric) || numeric <= 0) { alert('Informe um valor válido maior que zero.'); return; }
+
+  if (existingGoal) {
+    await saveGoal('geral', numeric, existingGoal.id);
+  } else {
+    await saveGoal('geral', numeric);
+  }
+}
+
+async function removeGeneralGoal() {
+  if (!confirm('Remover a meta geral do mês?')) return;
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  let goalToRemove = null;
+  Object.values(goalsCatalog).forEach((g) => {
+    if (g.category_name === 'geral' && g.month === month && g.year === year) {
+      goalToRemove = g;
+    }
+  });
+  if (goalToRemove) {
+    await removeGoal(goalToRemove.id);
+  }
+}
+
+async function addCategoryGoal() {
+  const entries = getCategoryEntries();
+  if (!entries.length) { alert('Cadastre uma categoria primeiro.'); return; }
+  openGoalModal(null, null);
+}
+
+async function editCategoryGoal(id, goal) {
+  openGoalModal(id, goal);
+}
+
+async function removeCategoryGoal(id, categoryName) {
+  if (!confirm(`Remover a meta de "${categoryName}"?`)) return;
+  await removeGoal(id);
+}
+
+// ============================================================
+// EXPORT FUNCTIONS
+// ============================================================
+
+function getFileName(extension) {
+  const { month: selectedMonth, year: selectedYear } = getSelectedPeriod();
+  const monthName = MONTH_NAMES_PT[selectedMonth];
+  return `relatorio_${monthName}_${selectedYear}.${extension}`;
+}
+
+function exportToCSV() {
+  const transactions = getReportTransactions();
+  if (!transactions.length) { alert('Nenhum lançamento no período selecionado.'); return; }
+  let csv = '\uFEFFData;Descrição;Categoria;Tipo;Valor;Status;Quem\n';
+  transactions.forEach((t) => {
+    csv += `${t.data};${t.descricao.replace(/;/g, ',')};${t.categoria.replace(/;/g, ',')};${t.tipo};${t.valor.toFixed(2).replace('.', ',')};${t.status};${(t.criadoPor || '').replace(/;/g, ',')}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = getFileName('csv');
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+}
+
+function exportToXLSX() {
+  const transactions = getReportTransactions();
+  if (!transactions.length) { alert('Nenhum lançamento no período selecionado.'); return; }
+  if (typeof XLSX === 'undefined') { alert('Biblioteca XLSX não carregada.'); return; }
+  const data = transactions.map((t) => ({
+    'Data': t.data.split('-').reverse().join('/'),
+    'Descrição': t.descricao,
+    'Categoria': t.categoria,
+    'Tipo': t.tipo,
+    'Valor': t.valor,
+    'Status': t.status,
+    'Quem': t.criadoPor || ''
+  }));
+  const worksheet = XLSX.utils.json_to_sheet(data);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Lançamentos');
+  XLSX.writeFile(workbook, getFileName('xlsx'));
+}
+
+function exportToPDF() {
+  const transactions = getReportTransactions();
+  if (!transactions.length) { alert('Nenhum lançamento no período selecionado.'); return; }
+  if (typeof window.jspdf === 'undefined') { alert('Biblioteca PDF não carregada.'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const { month: selectedMonth, year: selectedYear } = getSelectedPeriod();
+  const monthName = MONTH_NAMES_PT[selectedMonth];
+  doc.setFontSize(16);
+  doc.text('Finanças do Casal - Relatório', 105, 15, { align: 'center' });
+  doc.setFontSize(12);
+  doc.text(`${monthName} ${selectedYear}`, 105, 22, { align: 'center' });
+  doc.setFontSize(10);
+  doc.text('Gerado em: ' + new Date().toLocaleString('pt-BR'), 105, 28, { align: 'center' });
+
+  let y = 40;
+  doc.setFontSize(8);
+  doc.setFillColor(249, 115, 22);
+  doc.setTextColor(255, 255, 255);
+  doc.rect(10, y - 5, 190, 7, 'F');
+  doc.text('Data', 14, y);
+  doc.text('Descrição', 40, y);
+  doc.text('Categoria', 95, y);
+  doc.text('Tipo', 130, y);
+  doc.text('Valor', 155, y);
+  doc.text('Status', 180, y);
+
+  let totalExpense = 0, totalIncome = 0;
+  y += 7;
+  doc.setTextColor(0, 0, 0);
+  transactions.forEach((t) => {
+    if (y > 280) { doc.addPage(); y = 20; }
+    doc.setFontSize(8);
+    doc.text(t.data.split('-').reverse().join('/'), 14, y);
+    doc.text(t.descricao.substring(0, 25), 40, y);
+    doc.text(t.categoria.substring(0, 12), 95, y);
+    doc.text(t.tipo, 130, y);
+    doc.text(`R$ ${t.valor.toFixed(2).replace('.', ',')}`, 155, y);
+    doc.text(t.status, 180, y);
+    if (t.tipo === 'Despesa') totalExpense += t.valor;
+    else totalIncome += t.valor;
+    y += 5;
+  });
+
+  y += 8;
+  doc.setFontSize(10);
+  doc.setTextColor(0, 128, 0);
+  doc.text(`Total Receitas: R$ ${totalIncome.toFixed(2).replace('.', ',')}`, 14, y);
+  y += 6;
+  doc.setTextColor(200, 0, 0);
+  doc.text(`Total Despesas: R$ ${totalExpense.toFixed(2).replace('.', ',')}`, 14, y);
+  y += 6;
+  doc.setTextColor(0, 0, 0);
+  doc.text(`Saldo: R$ ${(totalIncome - totalExpense).toFixed(2).replace('.', ',')}`, 14, y);
+  doc.save(getFileName('pdf'));
+}
+
+// ============================================================
+// VOICE COMMANDS
+// ============================================================
+const mapaCategoriasPorPalavra = {
+  'mercado': 'Alimentação', 'supermercado': 'Alimentação', 'minimercado': 'Alimentação',
+  'padaria': 'Alimentação', 'ifood': 'Alimentação', 'rappi': 'Alimentação',
+  'pizza': 'Alimentação', 'lanche': 'Alimentação', 'hamburgueria': 'Alimentação',
+  'almoco': 'Alimentação', 'janta': 'Alimentação', 'jantar': 'Alimentação',
+  'acougue': 'Alimentação', 'feira': 'Alimentação', 'restaurante': 'Alimentação',
+  'uber': 'Transporte', '99': 'Transporte', 'gasolina': 'Transporte',
+  'combustivel': 'Transporte', 'posto': 'Transporte', 'estacionamento': 'Transporte',
+  'luz': 'Contas', 'energia': 'Contas', 'agua': 'Contas',
+  'aluguel': 'Contas', 'internet': 'Contas', 'condominio': 'Contas',
+  'cinema': 'Lazer', 'festa': 'Lazer', 'bar': 'Lazer', 'passeio': 'Lazer',
+  'farmacia': 'Saúde', 'remedio': 'Saúde', 'medico': 'Saúde',
+  'salario': 'Salário', 'pagamento': 'Salário', '13º': 'Salário'
+};
+const gatilhosReceita = ['recebi', 'recebimento', 'ganhei', 'entrou', 'caiu', 'pagaram', 'depositaram', 'deposito', 'lucro', 'venda', 'vendi', 'pix do', 'pix da', 'transferiram', 'transferencia recebida', 'receita', 'entrada', 'renda', 'ganho'];
+
+function interpretarComandoDeVoz(textoFalado) {
+  const texto = textoFalado.toLowerCase().trim();
+  let dueDate = todayDatePart(new Date());
+  if (/amanha/i.test(texto)) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    dueDate = todayDatePart(tomorrow);
+  }
+  const textoSemData = texto.replace(/\bdia\s+\d{1,2}\b/gi, ' ').replace(/amanha|\bhoje\b/gi, ' ');
+  const regexValor = /\d+(?:[.,]\d+)?/g;
+  const valoresEncontrados = textoSemData.match(regexValor);
+  let valor = 0;
+  if (valoresEncontrados) {
+    valor = parseFloat(valoresEncontrados[0].replace(',', '.'));
+  }
+  const tipo = gatilhosReceita.some((palavra) => texto.includes(palavra)) ? 'income' : 'expense';
+  let categoriaSugerida = null;
+  for (const [palavra, cat] of Object.entries(mapaCategoriasPorPalavra)) {
+    if (texto.includes(palavra)) { categoriaSugerida = cat; break; }
+  }
+  const categoriasDoCasal = new Set(getCategoryEntries().map(([, item]) => item.name));
+  const categoria = (categoriaSugerida && categoriasDoCasal.has(categoriaSugerida)) ? categoriaSugerida : 'Geral';
+  let descricao = texto;
+  if (valoresEncontrados) {
+    descricao = descricao.split(valoresEncontrados[0]).join(' ');
+  }
+  [...gatilhosReceita, 'paguei', 'comprei', 'gastei', 'custou', 'despesa', 'reais', 'real', 'r$', 'conto', 'pila'].forEach((palavra) => {
+    descricao = descricao.split(palavra).join(' ');
+  });
+  descricao = descricao.replace(/\bdia\s+\d{1,2}\b/gi, ' ').replace(/amanha|\bhoje\b/gi, ' ');
+  descricao = descricao.replace(/^\s*(no|na|de|do|da|com|o|a|em|e)\s+/i, '').replace(/\s+/g, ' ').trim();
+  if (!descricao || descricao.length < 2) descricao = 'Lançamento por voz';
+  descricao = descricao.charAt(0).toUpperCase() + descricao.slice(1);
+  return { tipo, valor, categoria, descricao, dueDate };
+}
+
+function fillFormFromAi(parsed) {
+  const amountEl = document.getElementById('amount');
+  const descEl = document.getElementById('desc');
+  const typeEl = document.getElementById('type');
+  const categoryEl = document.getElementById('category');
+  const dueDateEl = document.getElementById('due-date');
+
+  if (amountEl) { amountEl.value = parsed.valor.toFixed(2); flashAiFilled(amountEl); }
+  if (descEl) { descEl.value = parsed.descricao; flashAiFilled(descEl); }
+  if (typeEl) { typeEl.value = parsed.tipo; typeEl.dispatchEvent(new Event('change')); flashAiFilled(typeEl); }
+  if (dueDateEl && parsed.dueDate) { dueDateEl.value = parsed.dueDate; dueDateEl.dispatchEvent(new Event('change')); flashAiFilled(dueDateEl); }
+  if (categoryEl) {
+    const entries = Array.from(categoryEl.options).map((o) => o.value);
+    if (entries.includes(parsed.categoria)) {
+      categoryEl.value = parsed.categoria;
+    } else {
+      const fallback = entries.includes('Geral') ? 'Geral' : (entries[0] || 'Geral');
+      categoryEl.value = fallback;
+    }
+    flashAiFilled(categoryEl);
+  }
+  if (parsed.descricao) {
+    showFormMessage(`✨ IA preencheu: "${parsed.descricao}" — revise e salve.`, '');
+  }
+}
+
+function mostrarToastSucessoVoz(descricao, valor) {
+  const toast = document.createElement('div');
+  toast.className = 'voice-toast';
+  toast.style.borderColor = 'rgba(52,211,153,0.7)';
+  toast.style.background = 'rgba(52,211,153,0.12)';
+  toast.appendChild(document.createTextNode('✅ Lançamento por voz salvo automaticamente! '));
+  const toastDesc = document.createElement('strong');
+  toastDesc.textContent = descricao;
+  toast.appendChild(toastDesc);
+  toast.appendChild(document.createElement('br'));
+  toast.appendChild(document.createTextNode(valor));
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+  if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+}
+
+// ============================================================
+// BIOMETRIC FUNCTIONS
+// ============================================================
+function getBiometricCredentialKey(uid) { return `bioCred_${uid}`; }
+function getBiometricEnabledKey(uid) { return `bioEnabled_${uid}`; }
+function getBiometricEmailKey(uid) { return `bioEmail_${uid}`; }
+
+function isBiometricEnabledForUser(uid) {
+  return localStorage.getItem(getBiometricEnabledKey(uid)) === 'true' && !!localStorage.getItem(getBiometricCredentialKey(uid));
+}
+
+function base64urlToBuffer(base64url) {
+  const padding = '='.repeat((4 - base64url.length % 4) % 4);
+  const base64 = (base64url + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const buffer = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) buffer[i] = raw.charCodeAt(i);
+  return buffer.buffer;
+}
+
+async function isBiometricAvailable() {
+  if (!window.PublicKeyCredential || !navigator.credentials) return false;
+  try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { return false; }
+}
+
+async function registerBiometric(uid, email) {
+  const challenge = crypto.getRandomValues(new Uint8Array(32));
+  const userIdBytes = crypto.getRandomValues(new Uint8Array(16));
+  const publicKey = {
+    challenge,
+    rp: { name: 'Finanças do Casal' },
+    user: { id: userIdBytes, name: email || 'usuario', displayName: email || 'Usuário' },
+    pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+    authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+    timeout: 60000,
+    attestation: 'none'
+  };
+  const credential = await navigator.credentials.create({ publicKey });
+  localStorage.setItem(getBiometricCredentialKey(uid), btoa(String.fromCharCode(...new Uint8Array(credential.rawId))));
+  localStorage.setItem(getBiometricEnabledKey(uid), 'true');
+  localStorage.setItem(getBiometricEmailKey(uid), (email || '').trim().toLowerCase());
+}
+
+function disableBiometric(uid) {
+  localStorage.removeItem(getBiometricCredentialKey(uid));
+  localStorage.removeItem(getBiometricEnabledKey(uid));
+  localStorage.removeItem(getBiometricEmailKey(uid));
+}
+
+async function verifyBiometric(uid) {
+  const credentialId = localStorage.getItem(getBiometricCredentialKey(uid));
+  if (!credentialId) return false;
+  const challenge = crypto.getRandomValues(new Uint8Array(32));
+  const publicKey = {
+    challenge,
+    allowCredentials: [{ id: base64urlToBuffer(credentialId), type: 'public-key' }],
+    userVerification: 'required',
+    timeout: 60000
+  };
+  try { await navigator.credentials.get({ publicKey }); return true; } catch (error) { return false; }
+}
+
+function showBiometricLock() {
+  authView.style.display = 'none';
+  managerialView.style.display = 'none';
+  mainView.style.display = 'none';
+  if (bottomNav) bottomNav.style.display = 'none';
+  if (fabAddTransacao) fabAddTransacao.style.display = 'none';
+  if (txModalOverlay) txModalOverlay.classList.remove('active');
+  expectedBiometricEmail = (pendingBiometricUser && (localStorage.getItem(getBiometricEmailKey(pendingBiometricUser.id)) || pendingBiometricUser.email) || '').trim().toLowerCase();
+  biometricLockView.classList.remove('hidden');
+  biometricLockView.style.display = 'flex';
+  biometricLockEmail?.focus();
+}
+
+function hideBiometricLock() {
+  biometricLockView.classList.add('hidden');
+  biometricLockView.style.display = 'none';
+}
+
+function resetBiometricUnlockUI() {
+  if (biometricLockEmail) biometricLockEmail.value = '';
+  if (biometricUnlockBtn) { biometricUnlockBtn.disabled = true; biometricUnlockBtn.classList.remove('ready'); }
+  if (biometricHint) { biometricHint.textContent = 'Digite o e-mail cadastrado neste aparelho para habilitar o botão.'; biometricHint.classList.remove('ready', 'no-match'); }
+  if (biometricLockMessage) biometricLockMessage.textContent = '';
+}
+
+async function updateBiometricToggleUI() {
+  if (!biometricToggleBtn || !currentUser) return;
+  const available = await isBiometricAvailable();
+  if (!available) { biometricToggleBtn.style.display = 'none'; return; }
+  biometricToggleBtn.style.display = '';
+  const enabled = isBiometricEnabledForUser(currentUser.id);
+  biometricToggleBtn.innerHTML = enabled ? '<i class="ti ti-fingerprint-off"></i> Desativar desbloqueio por digital' : '<i class="ti ti-fingerprint"></i> Ativar desbloqueio por digital';
+}
+
+// ============================================================
+// VOICE TOGGLE
+// ============================================================
+function getVoiceEnabledKey(uid) { return `voiceEnabled_${uid}`; }
+function isVoiceEnabledForUser(uid) { return localStorage.getItem(getVoiceEnabledKey(uid)) === 'true'; }
+
+function updateVoiceToggleUI() {
+  if (!voiceToggleBtn || !currentUser) return;
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognitionCtor) { voiceToggleBtn.style.display = 'none'; if (voiceInputBtn) voiceInputBtn.style.display = 'none'; return; }
+  voiceToggleBtn.style.display = '';
+  const enabled = isVoiceEnabledForUser(currentUser.id);
+  voiceToggleBtn.innerHTML = enabled ? '<i class="ti ti-microphone-off"></i> Desativar comando por voz' : '<i class="ti ti-microphone"></i> Ativar comando por voz';
+  if (voiceInputBtn) voiceInputBtn.style.display = enabled ? '' : 'none';
+}
+
+// ============================================================
+// COUPLE ACCOUNT
+// ============================================================
+async function activateCoupleAccount(nomeEle, nomeEla) {
+  if (!currentUser) throw new Error('Usuário não autenticado.');
+
+  // Create couple
+  const { data: couple, error: coupleError } = await supabase
+    .from('couples')
+    .insert({
+      nome_ele: nomeEle,
+      nome_ela: nomeEla
+    })
+    .select()
+    .single();
+  if (coupleError) throw coupleError;
+
+  // Update user profile
+  const { error: profileError } = await supabase
+    .from('profiles')
+    .update({
+      couple_id: couple.id
+    })
+    .eq('id', currentUser.id);
+  if (profileError) throw profileError;
+
+  currentCasalId = couple.id;
+  currentAccountType = 'couple';
+  return couple.id;
+}
+
+// ============================================================
+// REMEMBER ME
+// ============================================================
+const REMEMBER_ME_KEY = 'rememberedEmail_financas';
+
+function loadRememberedEmail() {
+  if (!rememberMeCheckbox || !loginEmailInput) return;
+  const savedEmail = localStorage.getItem(REMEMBER_ME_KEY);
+  if (savedEmail) {
+    loginEmailInput.value = savedEmail;
+    rememberMeCheckbox.checked = true;
+  }
+}
+
+function saveRememberedEmail() {
+  if (!rememberMeCheckbox || !loginEmailInput) return;
+  if (rememberMeCheckbox.checked) {
+    localStorage.setItem(REMEMBER_ME_KEY, loginEmailInput.value.trim());
+  } else {
+    localStorage.removeItem(REMEMBER_ME_KEY);
+  }
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+
+// AUTH
+authSwitchBtn.addEventListener('click', () => {
+  setAuthMode(!loginForm.classList.contains('hidden'));
+});
+
+loginForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  saveRememberedEmail();
+  setAuthMessage();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const loginButton = event.target.querySelector('button[type="submit"]');
+  loginButton.disabled = true;
+  loginButton.textContent = 'Verificando acesso...';
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (!data.user) throw new Error('Usuário não encontrado');
+    currentUser = data.user;
+    biometricSessionUnlocked = true;
+    await loadUserData(data.user);
+  } catch (error) {
+    setAuthMessage(formatAuthError(error));
+    biometricSessionUnlocked = false;
+  } finally {
+    loginButton.disabled = false;
+    loginButton.textContent = 'Entrar';
+  }
+});
+
+signupForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  setAuthMessage();
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const displayName = document.getElementById('signup-name').value.trim();
+
+  if (!displayName) { setAuthMessage('Informe seu nome.'); return; }
+  if (!/^(?=.*[A-Za-zÀ-ÿ])(?=.*\d).{8,}$/.test(password)) {
+    setAuthMessage('A senha precisa ter no mínimo 8 caracteres, incluindo letras e números.');
+    return;
+  }
+
+  const submitBtn = signupForm.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Criando conta...';
+
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { full_name: displayName }
+      }
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error('Usuário não criado');
+
+    if (!data.session) {
+      document.getElementById('signup-name').value = '';
+      document.getElementById('signup-email').value = '';
+      document.getElementById('signup-password').value = '';
+      setAuthMessage('Conta criada. Verifique seu e-mail e confirme o cadastro antes de entrar.');
+      return;
+    }
+
+    // Create profile
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: data.user.id,
+        full_name: displayName,
+        currency: 'BRL'
+      });
+    if (profileError) throw profileError;
+
+    // Check for invite
+    if (conviteCasalIdFromUrl) {
+      const { data: coupleData } = await supabase
+        .from('couples')
+        .select('id')
+        .eq('id', conviteCasalIdFromUrl)
+        .single();
+      if (coupleData) {
+        await supabase
+          .from('profiles')
+          .update({ couple_id: coupleData.id })
+          .eq('id', data.user.id);
+        await supabase
+          .from('couple_invites')
+          .update({ used: true, used_by: data.user.id })
+          .eq('couple_id', coupleData.id)
+          .eq('invited_email', email);
+        localStorage.removeItem('convitePendente');
+        conviteCasalIdFromUrl = '';
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('convite');
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
+
+    currentUser = data.user;
+    biometricSessionUnlocked = true;
+    await loadUserData(data.user);
+    document.getElementById('signup-name').value = '';
+    document.getElementById('signup-email').value = '';
+    document.getElementById('signup-password').value = '';
+  } catch (error) {
+    console.error('Erro no cadastro:', error);
+    setAuthMessage(formatAuthError(error));
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Criar conta';
+  }
+});
+
+logoutBtn.addEventListener('click', async () => {
+  biometricSessionUnlocked = false;
+  pendingBiometricUser = null;
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  setAuthMessage('Você saiu da sua conta.');
+  try {
+    await supabase.auth.signOut();
+    currentUser = null;
+    globalData = {};
+    launchCatalog = {};
+    categoryCatalog = {};
+    goalsCatalog = {};
+    showAuthentication();
+  } catch (error) {
+    console.error('Erro no logout:', error);
+    setAuthMessage('Erro ao sair. Tente novamente.');
+  }
+});
+
+deleteAccountBtn.addEventListener('click', async () => {
+  menuPopover?.classList.remove('show');
+  if (!currentUser) return;
+
+  const isCouple = !!currentCasalId;
+  if (isCouple && !isCasalCreator) { alert('Somente quem criou a conta de casal pode excluí-la.'); return; }
+
+  if (isCouple && isCasalCreator && lastMemberCount >= 2) {
+    const confirmation = confirm('Isso vai remover o acesso do seu parceiro(a) aos dados do casal.\n\nDeseja continuar?');
+    if (!confirmation) return;
+    const partnerUid = lastMembrosRaw.find((id) => id !== currentUser.id);
+    if (!partnerUid) { alert('Não foi possível identificar a conta do parceiro(a).'); return; }
+    try {
+      // TODO: Implementar remoção de parceiro
+      alert('O acesso do parceiro(a) aos dados foi removido.');
+      await loadAllData();
+    } catch (error) {
+      console.error('Erro ao remover parceiro:', error);
+      alert('Não foi possível remover o parceiro(a). Tente novamente.');
+    }
+    return;
+  }
+
+  const warningMessage = isCouple ?
+    'Você tem certeza que deseja excluir sua conta?\n\nATENÇÃO: Esta ação é irreversível. Todos os dados do casal serão apagados junto.' :
+    'Você tem certeza que deseja excluir sua conta?\n\nATENÇÃO: Esta ação é irreversível e todos os seus dados financeiros serão permanentemente apagados.';
+
+  if (!confirm(warningMessage)) return;
+
+  try {
+    if (isCouple) {
+      await supabase.from('couples').delete().eq('id', currentCasalId);
+    }
+    await supabase.from('profiles').delete().eq('id', currentUser.id);
+    await supabase.auth.admin.deleteUser(currentUser.id);
+    alert('Sua conta foi excluída com sucesso.');
+    showAuthentication();
+  } catch (error) {
+    console.error('Erro ao excluir conta:', error);
+    alert('Ocorreu um erro ao excluir sua conta. Tente novamente.');
+  }
+});
+
+// BIOMETRIC
+biometricUnlockBtn?.addEventListener('click', async () => {
+  try {
+    if (!pendingBiometricUser) return;
+    const typed = biometricLockEmail.value.trim().toLowerCase();
+    if (!typed || typed !== expectedBiometricEmail) {
+      biometricLockMessage.textContent = 'Confirme o e-mail cadastrado neste aparelho antes de usar a digital.';
+      return;
+    }
+    biometricUnlockBtn.disabled = true;
+    const ok = await verifyBiometric(pendingBiometricUser.id);
+    if (ok) {
+      biometricSessionUnlocked = true;
+      const user = pendingBiometricUser;
+      pendingBiometricUser = null;
+      hideBiometricLock();
+      await loadUserData(user);
+      updateBiometricToggleUI();
+      updateVoiceToggleUI();
+    } else {
+      biometricUnlockBtn.disabled = false;
+      biometricLockMessage.textContent = 'Não foi possível verificar sua digital. Tente novamente ou use a senha.';
+    }
+  } catch (error) {
+    console.error('Erro no desbloqueio biométrico:', error);
+    biometricUnlockBtn.disabled = false;
+    biometricLockMessage.textContent = 'Erro inesperado no desbloqueio. Tente usar a senha.';
+  }
+});
+
+biometricUsePasswordBtn?.addEventListener('click', async () => {
+  const typedEmail = biometricLockEmail?.value.trim() || '';
+  pendingBiometricUser = null;
+  hideBiometricLock();
+  try {
+    await supabase.auth.signOut();
+    showAuthentication();
+    if (typedEmail) document.getElementById('login-email').value = typedEmail;
+  } catch (err) {
+    console.error('Erro ao sair da conta bloqueada:', err);
+    showAuthentication();
+    if (typedEmail) document.getElementById('login-email').value = typedEmail;
+  }
+});
+
+biometricLockEmail?.addEventListener('input', () => {
+  const typed = biometricLockEmail.value.trim().toLowerCase();
+  const matches = typed.length > 0 && typed === expectedBiometricEmail;
+  biometricUnlockBtn.disabled = !matches;
+  biometricUnlockBtn.classList.toggle('ready', matches);
+  biometricLockMessage.textContent = '';
+  if (!typed) {
+    biometricHint.textContent = 'Digite o e-mail cadastrado neste aparelho para habilitar o botão.';
+    biometricHint.classList.remove('ready', 'no-match');
+  } else if (matches) {
+    biometricHint.textContent = '✓ E-mail reconhecido! Toque no botão para usar sua digital.';
+    biometricHint.classList.add('ready');
+    biometricHint.classList.remove('no-match');
+  } else {
+    biometricHint.textContent = 'E-mail não reconhecido neste aparelho.';
+    biometricHint.classList.add('no-match');
+    biometricHint.classList.remove('ready');
+  }
+});
+
+biometricToggleBtn?.addEventListener('click', async () => {
+  if (!currentUser) return;
+  if (isBiometricEnabledForUser(currentUser.id)) {
+    disableBiometric(currentUser.id);
+    await updateBiometricToggleUI();
+    alert('Desbloqueio por digital desativado neste aparelho.');
+    return;
+  }
+  try {
+    await registerBiometric(currentUser.id, currentUser.email);
+    await updateBiometricToggleUI();
+    alert('Desbloqueio por digital ativado! Da próxima vez que abrir o app neste aparelho, você poderá usar sua digital em vez da senha.');
+  } catch (error) {
+    console.error('Erro ao ativar digital:', error);
+    alert('Não foi possível ativar o desbloqueio por digital. Verifique se seu aparelho tem digital/Face ID configurados.');
+  }
+});
+
+// VOICE
+function initVoiceRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { voiceInputBtn.style.display = 'none'; return; }
+  recognition = new SpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onresult = (event) => {
+    const transcript = event.results[0][0].transcript;
+    console.log('🎤 Transcrição capturada:', transcript);
+    stopListening();
+    hideVoiceStatus();
+    const parsed = interpretarComandoDeVoz(transcript);
+    if (parsed && parsed.valor > 0) {
+      fillFormFromAi(parsed);
+      openTransactionModal();
+      setTimeout(() => {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn && !submitBtn.disabled) {
+          form.requestSubmit(submitBtn);
+          mostrarToastSucessoVoz(parsed.descricao, currencyFormatter.format(parsed.valor));
+        }
+      }, 300);
+    } else {
+      showFormMessage('Não foi possível identificar o valor. Tente novamente.', 'error');
+    }
+  };
+
+  recognition.onerror = (event) => {
+    console.error('Erro no reconhecimento:', event.error);
+    stopListening();
+    if (event.error === 'not-allowed') {
+      alert('Permissão de microfone negada. Habilite o microfone no seu navegador.');
+    } else if (event.error === 'no-speech') {
+      alert('Nenhuma fala detectada. Tente novamente.');
+    }
+  };
+  recognition.onend = () => { if (isListening) stopListening(); };
+}
+
+function startListening() {
+  if (!recognition) return;
+  try {
+    recognition.start();
+    isListening = true;
+    voiceInputBtn.innerHTML = '<i class="ti ti-microphone-off"></i> Parar';
+    voiceInputBtn.style.background = 'rgba(248,113,113,0.2)';
+    voiceInputBtn.style.color = '#f87171';
+    voiceInputBtn.style.borderColor = 'rgba(248,113,113,0.5)';
+    voiceIndicator.style.display = 'block';
+  } catch (error) { console.error('Erro ao iniciar reconhecimento:', error); }
+}
+
+function stopListening() {
+  if (recognition) { try { recognition.stop(); } catch (e) {} }
+  isListening = false;
+  voiceInputBtn.innerHTML = '<i class="ti ti-microphone"></i> Voz';
+  voiceInputBtn.style.background = '';
+  voiceInputBtn.style.color = '';
+  voiceInputBtn.style.borderColor = '';
+  voiceIndicator.style.display = 'none';
+}
+
+function hideVoiceStatus() {
+  if (voiceIndicator) {
+    voiceIndicator.style.display = 'none';
+    voiceIndicator.textContent = '';
+  }
+  if (voiceInputBtn) {
+    voiceInputBtn.innerHTML = '<i class="ti ti-microphone"></i> Voz';
+    voiceInputBtn.style.background = '';
+    voiceInputBtn.style.color = '';
+    voiceInputBtn.style.borderColor = '';
+  }
+  isListening = false;
+}
+
+voiceInputBtn?.addEventListener('click', () => {
+  if (!recognition) initVoiceRecognition();
+  if (!recognition) return;
+  if (isListening) { stopListening(); } else { startListening(); }
+});
+
+voiceToggleBtn?.addEventListener('click', () => {
+  if (!currentUser) return;
+  const key = getVoiceEnabledKey(currentUser.id);
+  const enabled = isVoiceEnabledForUser(currentUser.id);
+  localStorage.setItem(key, enabled ? 'false' : 'true');
+  updateVoiceToggleUI();
+});
+
+// PASSWORD TOGGLE
+function setupPasswordToggle(toggleId, inputId) {
+  const toggleButton = document.getElementById(toggleId);
+  const passwordInput = document.getElementById(inputId);
+  if (!toggleButton || !passwordInput) return;
+  toggleButton.addEventListener('click', () => {
+    const isPassword = passwordInput.type === 'password';
+    passwordInput.type = isPassword ? 'text' : 'password';
+    toggleButton.innerHTML = isPassword ? '<i class="ti ti-eye-off"></i>' : '<i class="ti ti-eye"></i>';
+  });
+}
+setupPasswordToggle('toggle-login-password', 'login-password');
+setupPasswordToggle('toggle-signup-password', 'signup-password');
+
+// FORGOT PASSWORD
+forgotPasswordBtn?.addEventListener('click', () => {
+  const isHidden = forgotPasswordBox.classList.contains('hidden');
+  if (isHidden) {
+    forgotPasswordEmail.value = document.getElementById('login-email').value.trim();
+    forgotPasswordMessage.textContent = '';
+  }
+  forgotPasswordBox.classList.toggle('hidden', !isHidden);
+});
+
+sendResetEmailBtn?.addEventListener('click', async () => {
+  const email = forgotPasswordEmail.value.trim();
+  if (!email || !email.includes('@')) {
+    forgotPasswordMessage.style.color = 'var(--danger)';
+    forgotPasswordMessage.textContent = 'Informe um e-mail válido.';
+    return;
+  }
+  sendResetEmailBtn.disabled = true;
+  sendResetEmailBtn.textContent = 'Enviando...';
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw error;
+    forgotPasswordMessage.style.color = 'var(--primary)';
+    forgotPasswordMessage.textContent = 'Se esse e-mail estiver cadastrado, você vai receber um link para redefinir a senha.';
+  } catch (error) {
+    console.error('Erro ao enviar redefinição:', error);
+    forgotPasswordMessage.style.color = 'var(--primary)';
+    forgotPasswordMessage.textContent = 'Se esse e-mail estiver cadastrado, você vai receber um link para redefinir a senha.';
+  } finally {
+    sendResetEmailBtn.disabled = false;
+    sendResetEmailBtn.textContent = 'Enviar link de redefinição';
+  }
+});
+
+// FORM
+document.getElementById('type').addEventListener('change', (e) => {
+  updatePaymentStatusOptions(e.target.value);
+});
+
+document.getElementById('repeat-transaction').addEventListener('change', (e) => {
+  document.getElementById('repeat-options').style.display = e.target.checked ? 'flex' : 'none';
+});
+
+descInput.addEventListener('input', renderSuggestions);
+descInput.addEventListener('focus', renderSuggestions);
+
+suggestionsBox.addEventListener('click', (event) => {
+  const suggestionBtn = event.target.closest('button[data-launch-id]');
+  if (suggestionBtn) {
+    const id = suggestionBtn.dataset.launchId;
+    const item = launchCatalog[id];
+    if (item) {
+      descInput.value = item.label || '';
+      document.getElementById('type').value = item.type || 'expense';
+      updatePaymentStatusOptions(item.type || 'expense');
+      document.getElementById('payment-status').value = item.payment_status && item.payment_status !== 'auto' ? item.payment_status : 'auto';
+      document.getElementById('category').value = item.category || 'Geral';
+      selectedLaunchId = id;
+      editingLaunchId = null;
+      addLaunchBtn.textContent = 'Cadastro – Categorias';
+      suggestionsBox.classList.remove('show');
+    }
+  }
+});
+
+addLaunchBtn.addEventListener('click', () => {
+  if (editingLaunchId) {
+    const label = descInput.value.trim();
+    if (!label) return;
+    saveLaunch(label, document.getElementById('type').value, document.getElementById('payment-status').value, document.getElementById('category').value);
+    document.getElementById('amount').focus();
+    return;
+  }
+  toggleLaunchPanel();
+});
+
+addCategoryBtn.addEventListener('click', openCategoryModal);
+categoryModalCancelBtn.addEventListener('click', closeCategoryModal);
+categoryIconTrigger.addEventListener('click', () => {
+  const isOpen = categoryIconPicker.classList.toggle('open');
+  categoryIconTrigger.setAttribute('aria-expanded', String(isOpen));
+});
+categoryModalOverlay.addEventListener('click', (event) => {
+  if (event.target === categoryModalOverlay) closeCategoryModal();
+});
+categoryModalSaveBtn.addEventListener('click', createCategoryFromModal);
+
+document.getElementById('add-goal-btn')?.addEventListener('click', addCategoryGoal);
+
+// FORM SUBMIT
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const desc = descInput.value.trim();
+  const amountRaw = document.getElementById('amount').value;
+  const amount = parseFloat(amountRaw);
+  const type = document.getElementById('type').value;
+  const paymentStatusMode = document.getElementById('payment-status').value;
+  const category = document.getElementById('category').value;
+  const dueDate = document.getElementById('due-date').value;
+  const repeat = document.getElementById('repeat-transaction').checked;
+  const frequency = document.getElementById('repeatSelect').value;
+  let repeatCount = parseInt(document.getElementById('repeatCountSelect').value, 10) || 1;
+  repeatCount = Math.min(100, Math.max(1, repeatCount));
+
+  if (!desc) { showFormMessage('Preencha a descrição.', 'error'); descInput.focus(); return; }
+  if (isNaN(amount) || amount <= 0) { showFormMessage('Informe um valor válido maior que zero.', 'error'); document.getElementById('amount').focus(); return; }
+  if (!dueDate) { showFormMessage('Informe a data de vencimento.', 'error'); document.getElementById('due-date').focus(); return; }
+
+  let paymentStatus, statusSource = 'auto';
+  if (paymentStatusMode === 'auto') {
+    paymentStatus = getAutoPaymentStatus(dueDate, type);
+  } else {
+    paymentStatus = paymentStatusMode;
+    statusSource = 'manual';
+  }
+
+  submitButton.disabled = true;
+  submitButton.innerHTML = editingTransactionId ? 'Salvando...' : 'Enviando...';
+  showFormMessage('', '');
+
+  try {
+    await addTransaction(desc, amount, type, paymentStatus, statusSource, category, dueDate, repeat ? frequency : false, repeatCount);
+    const savedDesc = desc;
+    const savedAmount = amount;
+    resetTransactionForm();
+    closeTransactionModal();
+    if (window.__voiceAutoSave && window.__voiceAutoSave.pending) {
+      window.__voiceAutoSave.pending = false;
+      mostrarToastSucessoVoz(savedDesc, currencyFormatter.format(savedAmount));
+    }
+  } catch (error) {
+    console.error('Erro ao salvar lançamento:', error);
+    showFormMessage('Não foi possível salvar. Tente novamente.', 'error');
+  } finally {
+    submitButton.disabled = false;
+    submitButton.innerHTML = editingTransactionId ? '<i class="ti ti-device-floppy"></i> Salvar Alteração' : '<i class="ti ti-plus"></i> Adicionar Transação';
+  }
+});
+
+// LIST ACTIONS
+list?.addEventListener('click', async (event) => {
+  const editBtn = event.target.closest('.edit-btn');
+  if (editBtn) {
+    const id = editBtn.dataset.transactionId;
+    const item = globalData?.[id];
+    if (!item) return;
+    descInput.value = item.description || '';
+    document.getElementById('amount').value = item.amount ?? '';
+    document.getElementById('type').value = item.type || 'expense';
+    updatePaymentStatusOptions(item.type || 'expense');
+    document.getElementById('payment-status').value = item.status_source === 'manual' ? (item.payment_status || (item.type === 'income' ? 'A receber' : 'A pagar')) : 'auto';
+    document.getElementById('category').value = item.category || 'Geral';
+    document.getElementById('due-date').value = item.due_date || '';
+    editingTransactionId = id;
+    submitButton.innerHTML = '<i class="ti ti-device-floppy"></i> Salvar Alteração';
+    openTransactionModal();
+    descInput.focus();
+    return;
+  }
+
+  const delBtn = event.target.closest('.delete-btn');
+  if (delBtn) {
+    await deleteTransaction(delBtn.dataset.deleteId);
+    return;
+  }
+
+  const statusBtn = event.target.closest('.status-toggle');
+  if (statusBtn) {
+    const id = statusBtn.dataset.id;
+    const item = globalData?.[id];
+    if (!item) return;
+    const isPaid = statusBtn.classList.contains('paid');
+    const newStatus = isPaid ? (item.type === 'income' ? 'A receber' : 'A pagar') : (item.type === 'income' ? 'Recebido' : 'Pago');
+    await updateTransactionStatus(id, newStatus);
+  }
+});
+
+// CATEGORY ACTIONS
+categoryList?.addEventListener('click', async (event) => {
+  const editBtn = event.target.closest('.edit-btn');
+  if (editBtn) { await editCategory(editBtn.dataset.categoryId); return; }
+  const delBtn = event.target.closest('.delete-btn');
+  if (delBtn) { await deleteCategory(delBtn.dataset.categoryId); return; }
+});
+
+// LAUNCH ACTIONS
+launchList?.addEventListener('click', async (event) => {
+  const editBtn = event.target.closest('.edit-btn');
+  if (editBtn) {
+    const id = editBtn.dataset.launchId;
+    const item = launchCatalog[id];
+    if (item) {
+      descInput.value = item.label || '';
+      document.getElementById('type').value = item.type || 'expense';
+      updatePaymentStatusOptions(item.type || 'expense');
+      document.getElementById('payment-status').value = item.payment_status && item.payment_status !== 'auto' ? item.payment_status : 'auto';
+      document.getElementById('category').value = item.category || 'Geral';
+      selectedLaunchId = id;
+      editingLaunchId = id;
+      addLaunchBtn.textContent = 'Salvar modelo';
+      suggestionsBox.classList.remove('show');
+    }
+    return;
+  }
+  const delBtn = event.target.closest('.delete-btn');
+  if (delBtn) {
+    await deleteLaunchTemplate(delBtn.dataset.launchId);
+  }
+});
+
+// GOAL MODAL
+goalModalCancelBtn.addEventListener('click', closeGoalModal);
+goalModalOverlay.addEventListener('click', (event) => {
+  if (event.target === goalModalOverlay) closeGoalModal();
+});
+
+goalModalSaveBtn.addEventListener('click', async () => {
+  const numeric = parseFloat(String(goalModalValueInput.value).trim().replace(',', '.'));
+  if (isNaN(numeric) || numeric <= 0) {
+    showGoalModalError('Informe um valor válido maior que zero.');
+    return;
+  }
+  try {
+    if (goalModalEditingId) {
+      const existingGoal = goalsCatalog[goalModalEditingId];
+      await saveGoal(existingGoal?.category_name || '', numeric, goalModalEditingId);
+    } else {
+      const categoryName = goalModalCategorySelect.value;
+      if (!categoryName) { showGoalModalError('Selecione uma categoria.'); return; }
+      await saveGoal(categoryName, numeric);
+    }
+    closeGoalModal();
+  } catch (error) {
+    console.error('Erro ao salvar meta:', error);
+    showGoalModalError('Não foi possível salvar a meta.');
+  }
+});
+
+// NOTIFICATION
+notificationBtn.addEventListener('click', () => {
+  const isExpanded = notificationBtn.getAttribute('aria-expanded') === 'true';
+  notificationBtn.setAttribute('aria-expanded', String(!isExpanded));
+  notificationPopover.classList.toggle('show', !isExpanded);
+});
+
+document.addEventListener('click', (event) => {
+  if (!notificationPopover.classList.contains('show')) return;
+  if (notificationBtn.contains(event.target) || notificationPopover.contains(event.target)) return;
+  notificationBtn.setAttribute('aria-expanded', 'false');
+  notificationPopover.classList.remove('show');
+});
+
+// MENU
+function toggleSettingsMenu(forceShow) {
+  const willShow = typeof forceShow === 'boolean' ? forceShow : !menuPopover.classList.contains('show');
+  menuPopover.classList.toggle('show', willShow);
+  document.querySelectorAll('.bottom-nav-item[data-nav="ajustes"]').forEach((btn) => btn.setAttribute('aria-expanded', String(willShow)));
+  return willShow;
+}
+
+document.addEventListener('click', (event) => {
+  if (!menuPopover || !menuPopover.classList.contains('show')) return;
+  if (menuPopover.contains(event.target) || bottomNav?.contains(event.target)) return;
+  toggleSettingsMenu(false);
+});
+
+// COUPLE ACTIVATE
+coupleActivateBtn?.addEventListener('click', () => {
+  coupleActivateErrorMsg.textContent = '';
+  coupleNameEle.value = '';
+  coupleNameEla.value = '';
+  coupleActivatePopover.classList.toggle('show');
+  menuPopover.classList.remove('show');
+});
+
+coupleActivateConfirmBtn?.addEventListener('click', async () => {
+  coupleActivateErrorMsg.textContent = '';
+  const nomeEle = coupleNameEle.value.trim();
+  const nomeEla = coupleNameEla.value.trim();
+  if (!nomeEle || !nomeEla) { coupleActivateErrorMsg.textContent = 'Informe o nome de ELE e de ELA.'; return; }
+
+  coupleActivateConfirmBtn.disabled = true;
+  coupleActivateConfirmBtn.textContent = 'Ativando...';
+  try {
+    await activateCoupleAccount(nomeEle, nomeEla);
+    coupleActivatePopover.classList.remove('show');
+    alert('Conta Casal ativada! O app vai recarregar para aplicar as mudanças.');
+    await loadAllData();
+  } catch (error) {
+    console.error('Erro ao ativar conta casal:', error);
+    coupleActivateErrorMsg.textContent = 'Não foi possível ativar a Conta Casal. Tente novamente.';
+  } finally {
+    coupleActivateConfirmBtn.disabled = false;
+    coupleActivateConfirmBtn.textContent = 'Ativar Conta Casal';
+  }
+});
+
+// INVITE
+let inviteMethod = 'email';
+
+function setInviteMethod(method) {
+  inviteMethod = method;
+  inviteMethodEmailBtn.classList.toggle('active', method === 'email');
+  inviteMethodPhoneBtn.classList.toggle('active', method === 'phone');
+  inviteEmailField.classList.toggle('hidden', method !== 'email');
+  invitePhoneField.classList.toggle('hidden', method !== 'phone');
+}
+
+inviteMethodEmailBtn?.addEventListener('click', () => setInviteMethod('email'));
+inviteMethodPhoneBtn?.addEventListener('click', () => setInviteMethod('phone'));
+
+inviteBtn?.addEventListener('click', () => {
+  const isExpanded = inviteBtn.getAttribute('aria-expanded') === 'true';
+  inviteBtn.setAttribute('aria-expanded', String(!isExpanded));
+  invitePopover.classList.toggle('show', !isExpanded);
+  if (!isExpanded) {
+    inviteStepEmail.style.display = 'block';
+    inviteStepLink.style.display = 'none';
+    inviteErrorMsg.textContent = '';
+    invitePartnerEmail.value = '';
+    invitePartnerPhone.value = '';
+    setInviteMethod('email');
+  }
+});
+
+document.addEventListener('click', (event) => {
+  if (!invitePopover || !invitePopover.classList.contains('show')) return;
+  if (inviteBtn.contains(event.target) || invitePopover.contains(event.target)) return;
+  inviteBtn.setAttribute('aria-expanded', 'false');
+  invitePopover.classList.remove('show');
+});
+
+document.addEventListener('click', (event) => {
+  if (!coupleActivatePopover || !coupleActivatePopover.classList.contains('show')) return;
+  if (coupleActivateBtn.contains(event.target) || coupleActivatePopover.contains(event.target)) return;
+  coupleActivatePopover.classList.remove('show');
+});
+
+let lastGeneratedInviteLink = '';
+
+generateInviteLinkBtn?.addEventListener('click', async () => {
+  inviteErrorMsg.textContent = '';
+  if (!currentCasalId) { inviteErrorMsg.textContent = 'Não foi possível identificar sua conta de casal.'; return; }
+
+  let inviteKey = '';
+  let waPhoneDigits = '';
+  if (inviteMethod === 'email') {
+    const partnerEmail = invitePartnerEmail.value.trim().toLowerCase();
+    if (!partnerEmail || !partnerEmail.includes('@')) { inviteErrorMsg.textContent = 'Informe um e-mail válido.'; return; }
+    inviteKey = partnerEmail;
+  } else {
+    const digits = invitePartnerPhone.value.replace(/\D/g, '');
+    if (digits.length < 10) { inviteErrorMsg.textContent = 'Informe um celular válido com DDD.'; return; }
+    inviteKey = 'tel_' + digits;
+    waPhoneDigits = digits.length <= 11 ? '55' + digits : digits;
+  }
+
+  generateInviteLinkBtn.disabled = true;
+  generateInviteLinkBtn.textContent = 'Gerando...';
+
+  try {
+    await supabase
+      .from('couple_invites')
+      .insert({
+        couple_id: currentCasalId,
+        invited_email: inviteMethod === 'email' ? invitePartnerEmail.value.trim().toLowerCase() : null,
+        phone: inviteMethod === 'phone' ? invitePartnerPhone.value.trim() : null,
+        invited_by: currentUser.id,
+        status: 'pending'
+      });
+
+    const link = `${window.location.origin}${window.location.pathname}?convite=${currentCasalId}`;
+    lastGeneratedInviteLink = link;
+    inviteLinkDisplay.textContent = link;
+    inviteStepEmail.style.display = 'none';
+    inviteStepLink.style.display = 'block';
+
+    if (inviteMethod === 'phone') {
+      const waText = encodeURIComponent(`Oi! Baixe nosso app de finanças e acesse nossa conta conjunta clicando aqui: ${link}`);
+      window.open(`https://wa.me/${waPhoneDigits}?text=${waText}`, '_blank');
+    }
+  } catch (error) {
+    console.error('Erro ao gerar convite:', error);
+    inviteErrorMsg.textContent = 'Não foi possível gerar o convite. Tente novamente.';
+  } finally {
+    generateInviteLinkBtn.disabled = false;
+    generateInviteLinkBtn.textContent = 'Gerar link de convite';
+  }
+});
+
+shareInviteLinkBtn?.addEventListener('click', async () => {
+  if (!lastGeneratedInviteLink) return;
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Convite - Finanças do Casal', text: 'Oi! Baixe nosso app de finanças e acesse nossa conta conjunta clicando aqui:', url: lastGeneratedInviteLink }); } catch (e) {}
+  } else {
+    try { await navigator.clipboard.writeText(lastGeneratedInviteLink); alert('Link copiado!'); } catch (e) { alert(`Link: ${lastGeneratedInviteLink}`); }
+  }
+});
+
+copyInviteCodeBtn?.addEventListener('click', async () => {
+  const link = inviteLinkDisplay.textContent.trim();
+  if (!link) return;
+  try {
+    await navigator.clipboard.writeText(link);
+    const original = copyInviteCodeBtn.innerHTML;
+    copyInviteCodeBtn.innerHTML = '<i class="ti ti-check"></i>';
+    setTimeout(() => { copyInviteCodeBtn.innerHTML = original; }, 2000);
+  } catch (error) { alert(`Link: ${link}`); }
+});
+
+// NAVIGATION
+document.querySelectorAll('.bottom-nav-item').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.nav;
+    if (target === 'home') {
+      managerialView.style.display = 'none';
+      mainView.style.display = 'flex';
+      if (fabAddTransacao) fabAddTransacao.style.display = 'flex';
+      setBottomNavActive('home');
+    } else if (target === 'gerencial') {
+      mainView.style.display = 'none';
+      managerialView.style.display = 'flex';
+      populateManagerialFilters();
+      setManagerialPeriodMode('thisMonth');
+      if (fabAddTransacao) fabAddTransacao.style.display = 'none';
+      setBottomNavActive('gerencial');
+    } else if (target === 'metas') {
+      mainView.style.display = 'flex';
+      managerialView.style.display = 'none';
+      if (fabAddTransacao) fabAddTransacao.style.display = 'flex';
+      setBottomNavActive('home');
+      setTimeout(() => {
+        document.getElementById('goals-container')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    } else if (target === 'ajustes') {
+      mainView.style.display = 'flex';
+      managerialView.style.display = 'none';
+      if (fabAddTransacao) fabAddTransacao.style.display = 'flex';
+      setBottomNavActive('home');
+      setTimeout(() => {
+        const shown = toggleSettingsMenu(true);
+        if (shown) menuPopover?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    }
+  });
+});
+
+// REPORT TOGGLES
+document.querySelectorAll('.report-toggle').forEach((toggle) => {
+  toggle.addEventListener('click', () => {
+    const reportList = document.getElementById(`report-${toggle.dataset.report}-list`);
+    if (!reportList) return;
+    const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!isExpanded));
+    reportList.classList.toggle('collapsed', isExpanded);
+  });
+});
+
+// PERIOD FILTERS
+periodChips.forEach((chip) => {
+  chip.addEventListener('click', () => setManagerialPeriodMode(chip.dataset.period));
+});
+
+managerialMonthFilter?.addEventListener('change', renderManagerialData);
+managerialYearFilter?.addEventListener('change', renderManagerialData);
+
+// FILTERS
+filterPaymentStatus.addEventListener('change', renderList);
+filterSummaryPeriod.addEventListener('change', renderList);
+
+// EXPORT
+document.getElementById('export-csv-btn')?.addEventListener('click', exportToCSV);
+document.getElementById('export-xlsx-btn')?.addEventListener('click', exportToXLSX);
+document.getElementById('export-pdf-btn')?.addEventListener('click', exportToPDF);
+
+// USER FILTER
+filtrosUsuarioContainer?.addEventListener('click', (event) => {
+  const btn = event.target.closest('.btn-usuario-filtro');
+  if (btn) {
+    managerialUserFilter = btn.dataset.filtro;
+    document.querySelectorAll('.btn-usuario-filtro').forEach((b) => b.classList.toggle('ativo', b.dataset.filtro === managerialUserFilter));
+    renderTabelaGerencialPorUsuario();
+  }
+});
+
+// FAB
+fabAddTransacao?.addEventListener('click', () => {
+  resetTransactionForm();
+  openTransactionModal();
+});
+
+txModalCloseBtn?.addEventListener('click', closeTransactionModal);
+txModalOverlay?.addEventListener('click', (event) => {
+  if (event.target === txModalOverlay) closeTransactionModal();
+});
+
+// PHOTO UPLOAD
+btnEscolherGaleria?.addEventListener('click', () => inputFotoGaleria?.click());
+btnCameraTraseira?.addEventListener('click', () => inputFotoCameraTraseira?.click());
+btnCameraFrontal?.addEventListener('click', () => inputFotoCameraFrontal?.click());
+
+function processarFotoSelecionada(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(150 / image.width, 150 / image.height, 1);
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      fotoPerfilPendente = canvas.toDataURL('image/jpeg', 0.82);
+      if (perfilFotoPreview) perfilFotoPreview.src = fotoPerfilPendente;
+      if (btnSalvarFoto) btnSalvarFoto.style.display = 'inline-flex';
+    };
+    image.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+inputFotoGaleria?.addEventListener('change', processarFotoSelecionada);
+inputFotoCameraTraseira?.addEventListener('change', processarFotoSelecionada);
+inputFotoCameraFrontal?.addEventListener('change', processarFotoSelecionada);
+
+btnSalvarFoto?.addEventListener('click', async () => {
+  if (!currentUser || !fotoPerfilPendente) { alert('Escolha uma foto antes de salvar.'); return; }
+  const key = `avatarUrl_${currentUser.id}`;
+  localStorage.setItem(key, fotoPerfilPendente);
+  aplicarAvatarNoHeader(fotoPerfilPendente);
+  btnSalvarFoto.style.display = 'none';
+
+  try {
+    await supabase
+      .from('profiles')
+      .update({ avatar_url: fotoPerfilPendente })
+      .eq('id', currentUser.id);
+  } catch (error) {
+    console.warn('Não foi possível salvar foto no Supabase:', error);
+  }
+});
+
+// REMEMBER ME
+window.addEventListener('load', loadRememberedEmail);
+
+// ============================================================
+// LOAD USER DATA
+// ============================================================
+async function loadUserData(user) {
+  currentUser = user;
+
+  // Load profile
+  let { data: profile, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
+
+  if (error?.code === 'PGRST116') {
+    const { data: createdProfile, error: createProfileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário',
+        currency: 'BRL'
+      })
+      .select()
+      .single();
+    profile = createdProfile;
+    error = createProfileError;
+  }
+
+  if (error) {
+    console.error('Erro ao carregar perfil:', error);
+    setAuthMessage(formatAuthError(error));
+    return;
+  }
+
+  currentProfile = profile;
+  currentCasalId = profile?.couple_id || null;
+  currentUserDisplayName = profile?.full_name || user.email?.split('@')[0] || 'Parceiro';
+
+  // Check if user is in a couple
+  if (currentCasalId) {
+    currentAccountType = 'couple';
+    const { data: couple } = await supabase
+      .from('couples')
+      .select('id')
+      .eq('id', currentCasalId)
+      .single();
+    if (couple) {
+      isCasalCreator = profile?.id === couple?.criado_por;
+    }
+    // Get members
+    const { data: members } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('couple_id', currentCasalId);
+    lastMembrosRaw = members?.map((m) => m.id) || [];
+    lastMemberCount = lastMembrosRaw.length;
+  } else {
+    currentAccountType = 'individual';
+    isCasalCreator = false;
+    lastMembrosRaw = [];
+    lastMemberCount = 0;
+  }
+
+  coupleActivateBtn.style.display = currentAccountType === 'individual' ? '' : 'none';
+  updateInviteButtonVisibility();
+  updateDeleteButtonUI();
+  updateBiometricToggleUI();
+  updateVoiceToggleUI();
+
+  await loadAllData();
+  await showAuthenticatedApp(profile, user);
+}
+
+// ============================================================
+// VISIBILITY CHANGE (Biometric Lock)
+// ============================================================
+document.addEventListener('visibilitychange', () => {
+  if (!currentUser) return;
+  const bioEnabled = isBiometricEnabledForUser(currentUser.id);
+  if (!bioEnabled) return;
+  if (document.visibilityState === 'hidden') {
+    console.log('📴 App foi para segundo plano, re-bloqueando na volta.');
+    biometricSessionUnlocked = false;
+  } else if (document.visibilityState === 'visible' && !biometricSessionUnlocked && !pendingBiometricUser) {
+    console.log('👀 App voltou ao primeiro plano, exigindo digital novamente.');
+    pendingBiometricUser = currentUser;
+    showBiometricLock();
+  }
+});
+
+// ============================================================
+// AUTH STATE CHANGE
+// ============================================================
+supabase.auth.onAuthStateChange(async (event, session) => {
+  console.log('🔄 Supabase Auth state changed:', event, session?.user?.email || 'null');
+
+  if (event === 'SIGNED_OUT' || !session?.user) {
+    pendingBiometricUser = null;
+    hideBiometricLock();
+    currentUser = null;
+    globalData = {};
+    launchCatalog = {};
+    categoryCatalog = {};
+    goalsCatalog = {};
+    showAuthentication();
+    return;
+  }
+
+  const user = session.user;
+
+  try {
+    const bioEnabled = isBiometricEnabledForUser(user.id);
+    if (bioEnabled && !biometricSessionUnlocked && !pendingBiometricUser) {
+      pendingBiometricUser = user;
+      showBiometricLock();
+      return;
+    }
+    hideBiometricLock();
+    await loadUserData(user);
+    updateBiometricToggleUI();
+    updateVoiceToggleUI();
+  } catch (error) {
+    console.error('Erro na verificação de segurança:', error);
+    showAuthentication();
+    setAuthMessage('Erro ao carregar dados. Verifique sua conexão.');
+  }
+});
+
+// ============================================================
+// INIT
+// ============================================================
+console.log('🔥 App migrado para Supabase!');
+console.log('📌 URL do Supabase:', SUPABASE_URL);
+console.log('📌 Push notifications desativadas temporariamente.');
+console.log('📌 TODO: Reativar push com Edge Function');
+
+initVoiceRecognition();
+
+if (conviteCasalIdFromUrl) {
+  setAuthMode(true);
+  authInviteMessage.style.display = 'block';
+}
+
+console.log('✅ Todas as funções carregadas com sucesso!');
+</script>
+</body>
+</html>
