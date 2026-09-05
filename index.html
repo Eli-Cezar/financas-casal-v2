@@ -798,6 +798,11 @@ let currentUser = null;
 let currentProfile = null;
 let currentAccountType = 'individual';
 let currentCasalId = null;
+let casalNomeEle = '';
+let casalNomeEla = '';
+let membrosCasalProfiles = []; // perfis (full_name) dos membros do casal
+// Canal de inscrições em tempo real do Supabase (cada tabela obtém o próprio canal)
+let realtimeChannels = [];
 // Flag global para o setup de push (usada no primeiro gesto e no relogin)
 let pushSetupRequested = false;
 let globalData = {};
@@ -1198,8 +1203,8 @@ async function renderizarAvatarHeader() {
 async function showAuthenticatedApp(profile, user) {
   let title, subtitle;
   if (currentAccountType === 'couple') {
-    const casalName = [profile?.nome_ele, profile?.nome_ela].filter(Boolean).join(' & ');
-    title = casalName || 'Finanças do Casal';
+    const casalName = [casalNomeEle, casalNomeEla].filter(Boolean).join(' & ');
+    title = casalName || profile?.full_name || user?.email?.split('@')[0] || 'Minhas Finanças';
     subtitle = 'Gestão Compartilhada em Tempo Real';
   } else {
     title = profile?.full_name || user?.email?.split('@')[0] || 'Minhas Finanças';
@@ -1357,55 +1362,184 @@ function openGoalModal(editingId = null, existingGoal = null) {
 // DATA FUNCTIONS
 // ============================================================
 
+// Retorna o "scope" dos registros conforme o modo de conta:
+// - Casal: todos os registros vinculados ao currentCasalId;
+// - Individual: apenas os registros do usuário atual (user_id).
+function scopeOrm(start) {
+  if (currentAccountType === 'couple' && currentCasalId) {
+    return start.eq('couple_id', currentCasalId);
+  }
+  return start.eq('user_id', currentUser.id);
+}
+
+// Aplica o filtro de escopo (couple_id no modo casal, user_id no individual)
+// em uma query de update/delete já filtrada por outro critério (ex.: id).
+function scopeEq(query) {
+  if (currentAccountType === 'couple' && currentCasalId) {
+    return query.eq('couple_id', currentCasalId);
+  }
+  return query.eq('user_id', currentUser.id);
+}
+
+// Dispara uma recarga completa após eventos em tempo real.
+let realtimeReloadPending = false;
+function scheduleRealtimeReload() {
+  if (realtimeReloadPending) return;
+  realtimeReloadPending = true;
+  setTimeout(() => {
+    realtimeReloadPending = false;
+    loadAllData().catch((e) => console.error('Erro na recarga em tempo real:', e));
+    // No modo casal, reavalia o nº de membros a cada mudança síncrona: quando o
+    // 2º parceiro passa a gravar dados, o cabeçalho/botão de convite é atualizado.
+    if (currentAccountType === 'couple' && currentCasalId) {
+      refreshCasalHeaderMetadata().catch((e) => console.error('Erro ao atualizar casal em tempo real:', e));
+    }
+  }, 250);
+}
+
+// ============================================================
+// SUBSCRIÇÕES EM TEMPO REAL (Supabase Realtime)
+// ============================================================
+function subscribeRealtime() {
+  if (!supabase) return;
+  // Remove canais/anterior da sessão para não duplicar listeners.
+  try {
+    realtimeChannels.forEach((ch) => supabase.removeChannel(ch));
+  } catch (e) {}
+  realtimeChannels = [];
+
+  if (!currentUser) return;
+
+  // Filtro usado no canal conforme o modo de conta.
+  const coupleFilter = (currentAccountType === 'couple' && currentCasalId)
+    ? { couple_id: currentCasalId }
+    : { user_id: currentUser.id };
+
+  const tabelas = ['transactions', 'launches', 'categories', 'goals'];
+
+  tabelas.forEach((tabela) => {
+    const channel = supabase
+      .channel(`realtime-${tabela}-${currentUser.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: tabela, filter: coupleFilter.user_id ? `user_id=eq.${coupleFilter.user_id}` : `couple_id=eq.${coupleFilter.couple_id}` },
+        () => scheduleRealtimeReload()
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') console.log(`📡 Tempo real ativo em "${tabela}"`);
+      });
+    realtimeChannels.push(channel);
+  });
+
+  // No modo casal, também observa a entrada/saída de membros (2º parceiro).
+  // A assinatura de profiles/couples é best-effort: se a RLS bloquear o
+  // broadcast, a atualização do cabeçalho/botão de convite ainda ocorre nos
+  // refresh normais (cada ação de gravação e recargas de tela).
+  if (currentAccountType === 'couple' && currentCasalId) {
+    try {
+      const memberChannel = supabase
+        .channel(`realtime-couple-members-${currentUser.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'profiles', filter: `couple_id=eq.${currentCasalId}` },
+          () => { refreshCasalHeaderMetadata().catch(() => {}); }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') console.log('📡 Tempo real ativo em "profiles (membros)"');
+        });
+      realtimeChannels.push(memberChannel);
+    } catch (e) {
+      console.warn('Não foi possível assinar mudanças de membros do casal (RLS/Realtime).', e);
+    }
+    refreshCasalHeaderMetadata().catch(() => {});
+  }
+}
+
+// Atualiza metadados do casal no cabeçalho (nomes, membros, criador, botões)
+// usado após aceite do convite ou mudança de membros.
+async function refreshCasalHeaderMetadata() {
+  if (currentAccountType !== 'couple' || !currentCasalId || !currentUser) return;
+
+  try {
+    const { data: couple } = await supabase
+      .from('couples')
+      .select('id, nome_ele, nome_ela, criado_por')
+      .eq('id', currentCasalId)
+      .single();
+    if (couple) {
+      casalNomeEle = couple.nome_ele || '';
+      casalNomeEla = couple.nome_ela || '';
+      isCasalCreator = !!currentProfile && currentProfile.id === couple.criado_por;
+    }
+  } catch (e) { console.error('Erro ao carregar dados do casal:', e); }
+
+  // Contagem de membros (2 perfis com o mesmo couple_id)
+  try {
+    const { data: membros } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('couple_id', currentCasalId);
+    lastMembrosRaw = (membros || []).map((m) => m.id);
+    lastMemberCount = lastMembrosRaw.length;
+    membrosCasalProfiles = membros || [];
+  } catch (e) { console.error('Erro ao contar membros do casal:', e); }
+
+  updateInviteButtonVisibility();
+  updateDeleteButtonUI();
+  showAuthenticatedApp(currentProfile, currentUser);
+}
+
+// ============================================================
+// CARGA PRINCIPAL DE DADOS
+// ============================================================
 async function loadAllData() {
   if (!currentUser) return;
 
-  // Load transactions
-  const { data: transactions, error: txError } = await supabase
-    .from('transactions')
-    .select('*')
-    .eq('user_id', currentUser.id);
+  // Carras contagem/nome correto do membro logado.
+  if (currentAccountType === 'couple' && !membrosCasalProfiles.length) {
+    await refreshCasalHeaderMetadata();
+  }
 
+  // Load transactions
+  const { data: transactions, error: txError } = await scopeOrm(
+    supabase.from('transactions').select('*')
+  );
   if (!txError && transactions) {
     globalData = {};
     transactions.forEach((t) => { globalData[t.id] = t; });
   }
 
   // Load launches
-  const { data: launches, error: lError } = await supabase
-    .from('launches')
-    .select('*')
-    .eq('user_id', currentUser.id);
-
+  const { data: launches, error: lError } = await scopeOrm(
+    supabase.from('launches').select('*')
+  );
   if (!lError && launches) {
     launchCatalog = {};
     launches.forEach((l) => { launchCatalog[l.id] = l; });
   }
 
   // Load categories
-  const { data: categories, error: cError } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('user_id', currentUser.id);
-
+  const { data: categories, error: cError } = await scopeOrm(
+    supabase.from('categories').select('*')
+  );
   if (!cError && categories && categories.length > 0) {
     categoryCatalog = {};
     categories.forEach((c) => { categoryCatalog[c.id] = c; });
   } else if (!categories || categories.length === 0) {
-    // Seed default categories
+    // Define as categorias padrão vinculadas ao scope correto (casal ou usuário).
     for (const cat of defaultCategories) {
       await supabase.from('categories').insert({
         name: cat.name,
         icon: cat.icon,
         type: 'expense',
-        user_id: currentUser.id
+        user_id: currentUser.id,
+        couple_id: (currentAccountType === 'couple' && currentCasalId) ? currentCasalId : null
       });
     }
     // Reload
-    const { data: newCats } = await supabase
-      .from('categories')
-      .select('*')
-      .eq('user_id', currentUser.id);
+    const { data: newCats } = await scopeOrm(
+      supabase.from('categories').select('*')
+    );
     if (newCats) {
       categoryCatalog = {};
       newCats.forEach((c) => { categoryCatalog[c.id] = c; });
@@ -1416,14 +1550,9 @@ async function loadAllData() {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
-
-  const { data: goals, error: gError } = await supabase
-    .from('goals')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .eq('month', currentMonth)
-    .eq('year', currentYear);
-
+  const { data: goals, error: gError } = await scopeOrm(
+    supabase.from('goals').select('*').eq('month', currentMonth).eq('year', currentYear)
+  );
   if (!gError && goals) {
     goalsCatalog = {};
     goals.forEach((g) => { goalsCatalog[g.id] = g; });
@@ -2232,15 +2361,21 @@ async function addTransaction(desc, amount, type, paymentStatus, statusSource, c
     due_date: dueDate || null,
     category: category || 'Geral',
     created_by: currentUserDisplayName || 'Parceiro',
-    user_id: currentUser.id
+    user_id: currentUser.id,
+    couple_id: (currentAccountType === 'couple' && currentCasalId) ? currentCasalId : null
   };
 
   if (editingTransactionId) {
-    const { error } = await supabase
+    let query = supabase
       .from('transactions')
       .update(payload)
-      .eq('id', editingTransactionId)
-      .eq('user_id', currentUser.id);
+      .eq('id', editingTransactionId);
+    if (currentAccountType === 'couple' && currentCasalId) {
+      query = query.eq('couple_id', currentCasalId);
+    } else {
+      query = query.eq('user_id', currentUser.id);
+    }
+    const { error } = await query;
     if (error) throw error;
   } else {
     if (repeat && repeatCount > 1) {
@@ -2287,11 +2422,12 @@ async function addTransaction(desc, amount, type, paymentStatus, statusSource, c
 async function updateTransactionStatus(id, newStatus) {
   const item = globalData?.[id];
   if (!item) return;
-  const { error } = await supabase
+  let query = supabase
     .from('transactions')
     .update({ payment_status: newStatus, status_source: 'manual' })
-    .eq('id', id)
-    .eq('user_id', currentUser.id);
+    .eq('id', id);
+  query = scopeEq(query);
+  const { error } = await query;
   if (error) throw error;
 
   if ((newStatus === 'Pago' || newStatus === 'Recebido') && item.repeat_type) {
@@ -2317,11 +2453,12 @@ async function updateTransactionStatus(id, newStatus) {
 
 async function deleteTransaction(id) {
   if (!confirm('Excluir este lançamento? Esta ação não pode ser desfeita.')) return;
-  const { error } = await supabase
+  let query = supabase
     .from('transactions')
     .delete()
-    .eq('id', id)
-    .eq('user_id', currentUser.id);
+    .eq('id', id);
+  query = scopeEq(query);
+  const { error } = await query;
   if (error) throw error;
   if (editingTransactionId === id) resetTransactionForm();
   await loadAllData();
@@ -2338,11 +2475,12 @@ async function saveLaunch(label, type, paymentStatus, category) {
   };
 
   if (editingLaunchId) {
-    const { error } = await supabase
+    let query = supabase
       .from('launches')
       .update(payload)
-      .eq('id', editingLaunchId)
-      .eq('user_id', currentUser.id);
+      .eq('id', editingLaunchId);
+    query = scopeEq(query);
+    const { error } = await query;
     if (error) throw error;
     editingLaunchId = null;
     addLaunchBtn.textContent = 'Cadastro – Categorias';
@@ -2355,11 +2493,12 @@ async function saveLaunch(label, type, paymentStatus, category) {
 
 async function deleteLaunchTemplate(id) {
   if (!confirm('Excluir este modelo de lançamento?')) return;
-  const { error } = await supabase
+  let query = supabase
     .from('launches')
     .delete()
-    .eq('id', id)
-    .eq('user_id', currentUser.id);
+    .eq('id', id);
+  query = scopeEq(query);
+  const { error } = await query;
   if (error) throw error;
   if (editingLaunchId === id) {
     editingLaunchId = null;
@@ -2378,7 +2517,8 @@ async function saveCategory(name) {
     .insert({
       name: normalizedName,
       type: 'expense',
-      user_id: currentUser.id
+      user_id: currentUser.id,
+      couple_id: (currentAccountType === 'couple' && currentCasalId) ? currentCasalId : null
     });
   if (error) throw error;
   await loadAllData();
@@ -2439,7 +2579,8 @@ async function createCategoryFromModal() {
       name,
       icon,
       type: 'expense',
-      user_id: currentUser.id
+      user_id: currentUser.id,
+      couple_id: (currentAccountType === 'couple' && currentCasalId) ? currentCasalId : null
     });
     if (error) throw error;
     closeCategoryModal();
@@ -2461,19 +2602,21 @@ async function editCategory(id) {
   const exists = getCategoryEntries().some(([otherId, cat]) => otherId !== id && cat.name.toLowerCase() === normalizedName.toLowerCase());
   if (exists) { alert('Já existe uma categoria com este nome.'); return; }
 
-  const { error } = await supabase
+  let catQuery = supabase
     .from('categories')
     .update({ name: normalizedName })
-    .eq('id', id)
-    .eq('user_id', currentUser.id);
+    .eq('id', id);
+  catQuery = scopeEq(catQuery);
+  const { error } = await catQuery;
   if (error) throw error;
 
   // Update transactions and launches
-  const { data: txData } = await supabase
+  let txScan = supabase
     .from('transactions')
     .select('id')
-    .eq('category', category.name)
-    .eq('user_id', currentUser.id);
+    .eq('category', category.name);
+  txScan = scopeEq(txScan);
+  const { data: txData } = await txScan;
   if (txData && txData.length > 0) {
     const txIds = txData.map((t) => t.id);
     const { error: txError } = await supabase
@@ -2483,11 +2626,12 @@ async function editCategory(id) {
     if (txError) throw txError;
   }
 
-  const { data: launchData } = await supabase
+  let launchScan = supabase
     .from('launches')
     .select('id')
-    .eq('category', category.name)
-    .eq('user_id', currentUser.id);
+    .eq('category', category.name);
+  launchScan = scopeEq(launchScan);
+  const { data: launchData } = await launchScan;
   if (launchData && launchData.length > 0) {
     const launchIds = launchData.map((l) => l.id);
     const { error: launchError } = await supabase
@@ -2506,19 +2650,21 @@ async function deleteCategory(id) {
   const replacement = entries.find(([otherId]) => otherId !== id) || entries[0];
   if (!confirm(`Excluir a categoria "${category.name}"? Os lançamentos vinculados serão movidos para "${replacement[1].name}".`)) return;
 
-  const { error } = await supabase
+  let catQuery = supabase
     .from('categories')
     .delete()
-    .eq('id', id)
-    .eq('user_id', currentUser.id);
+    .eq('id', id);
+  catQuery = scopeEq(catQuery);
+  const { error } = await catQuery;
   if (error) throw error;
 
   // Move transactions
-  const { data: txData } = await supabase
+  let txScan = supabase
     .from('transactions')
     .select('id')
-    .eq('category', category.name)
-    .eq('user_id', currentUser.id);
+    .eq('category', category.name);
+  txScan = scopeEq(txScan);
+  const { data: txData } = await txScan;
   if (txData && txData.length > 0) {
     const txIds = txData.map((t) => t.id);
     await supabase
@@ -2527,11 +2673,12 @@ async function deleteCategory(id) {
       .in('id', txIds);
   }
 
-  const { data: launchData } = await supabase
+  let launchScan = supabase
     .from('launches')
     .select('id')
-    .eq('category', category.name)
-    .eq('user_id', currentUser.id);
+    .eq('category', category.name);
+  launchScan = scopeEq(launchScan);
+  const { data: launchData } = await launchScan;
   if (launchData && launchData.length > 0) {
     const launchIds = launchData.map((l) => l.id);
     await supabase
@@ -2557,11 +2704,12 @@ async function saveGoal(categoryName, limitValue, editingId = null) {
   };
 
   if (editingId) {
-    const { error } = await supabase
+    let query = supabase
       .from('goals')
       .update(payload)
-      .eq('id', editingId)
-      .eq('user_id', currentUser.id);
+      .eq('id', editingId);
+    query = scopeEq(query);
+    const { error } = await query;
     if (error) throw error;
   } else {
     const { error } = await supabase
@@ -2573,11 +2721,12 @@ async function saveGoal(categoryName, limitValue, editingId = null) {
 }
 
 async function removeGoal(id) {
-  const { error } = await supabase
+  let query = supabase
     .from('goals')
     .delete()
-    .eq('id', id)
-    .eq('user_id', currentUser.id);
+    .eq('id', id);
+  query = scopeEq(query);
+  const { error } = await query;
   if (error) throw error;
   await loadAllData();
 }
@@ -2977,8 +3126,29 @@ async function activateCoupleAccount(nomeEle, nomeEla) {
     .eq('id', currentUser.id);
   if (profileError) throw profileError;
 
+  // Migra os dados individuais já existentes do usuário para o novo casal
+  // (couple_id vazio/nulo), garantindo que nada do histórico "some" ao passar
+  // a exibir as informações pelo escopo compartilhado (couple_id).
+  for (const tabela of ['transactions', 'launches', 'categories', 'goals']) {
+    try {
+      await supabase
+        .from(tabela)
+        .update({ couple_id: couple.id })
+        .eq('user_id', currentUser.id)
+        .is('couple_id', null);
+    } catch (e) {
+      console.error(`Erro ao migrar ${tabela} para o casal:`, e);
+    }
+  }
+
   currentCasalId = couple.id;
   currentAccountType = 'couple';
+  // Armazena localmente os nomes e ajusta o perfil atual para refletir o casal
+  // imediatamente (usado na reconstrução do cabeçalho "Ele & Ela").
+  casalNomeEle = nomeEle;
+  casalNomeEla = nomeEla;
+  if (currentProfile) currentProfile.couple_id = couple.id;
+  membrosCasalProfiles = [{ id: currentUser.id, full_name: currentUserDisplayName }];
   return couple.id;
 }
 
@@ -3670,7 +3840,14 @@ coupleActivateConfirmBtn?.addEventListener('click', async () => {
     await activateCoupleAccount(nomeEle, nomeEla);
     coupleActivatePopover.classList.remove('show');
     alert('Conta Casal ativada! O app vai recarregar para aplicar as mudanças.');
+    // Recarrega os datos sob o escopo do casal e reconfigura o tempo real
+    // (filtro passa de user_id para couple_id).
+    updateInviteButtonVisibility();
+    updateDeleteButtonUI();
+    await refreshCasalHeaderMetadata();
+    subscribeRealtime();
     await loadAllData();
+    await showAuthenticatedApp(currentProfile, currentUser);
   } catch (error) {
     console.error('Erro ao ativar conta casal:', error);
     const detalhe = error?.message || error?.error_description || error?.details || '';
@@ -3940,6 +4117,10 @@ window.addEventListener('load', loadRememberedEmail);
 // ============================================================
 async function loadUserData(user) {
   currentUser = user;
+  // Reinicia metadados do casal para não herdar estado de outra sessão/conta.
+  casalNomeEle = '';
+  casalNomeEla = '';
+  membrosCasalProfiles = [];
 
   // Load profile
   let { data: profile, error } = await supabase
@@ -3995,6 +4176,8 @@ async function loadUserData(user) {
     isCasalCreator = false;
     lastMembrosRaw = [];
     lastMemberCount = 0;
+    casalNomeEle = '';
+    casalNomeEla = '';
   }
 
   coupleActivateBtn.style.display = currentAccountType === 'individual' ? '' : 'none';
@@ -4002,6 +4185,10 @@ async function loadUserData(user) {
   updateDeleteButtonUI();
   updateBiometricToggleUI();
   updateVoiceToggleUI();
+
+  // Ativa (ou reconfigura) as inscrições em tempo real já usando o modo/escopo
+  // de conta correto (couple_id no casal, user_id no individual).
+  subscribeRealtime();
 
   await loadAllData();
   await showAuthenticatedApp(profile, user);
@@ -4031,6 +4218,11 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   console.log('🔄 Supabase Auth state changed:', event, session?.user?.email || 'null');
 
   if (event === 'SIGNED_OUT' || !session?.user) {
+    // Remove canais de tempo real da sessão anterior para não duplicar ouvintes.
+    try {
+      realtimeChannels.forEach((ch) => supabase.removeChannel(ch));
+    } catch (e) {}
+    realtimeChannels = [];
     pendingBiometricUser = null;
     hideBiometricLock();
     currentUser = null;
