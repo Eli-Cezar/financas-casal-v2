@@ -798,6 +798,8 @@ let currentUser = null;
 let currentProfile = null;
 let currentAccountType = 'individual';
 let currentCasalId = null;
+// Flag global para o setup de push (usada no primeiro gesto e no relogin)
+let pushSetupRequested = false;
 let globalData = {};
 let launchCatalog = {};
 let categoryCatalog = {};
@@ -812,7 +814,31 @@ let biometricSessionUnlocked = false;
 let pendingBiometricUser = null;
 let expectedBiometricEmail = '';
 let currentUserDisplayName = '';
-let conviteCasalIdFromUrl = new URLSearchParams(window.location.search).get('convite') || localStorage.getItem('convitePendente') || '';
+
+// ============================================================
+// CONVITE - INÍCIO
+// ============================================================
+
+// 1. Verifica se há um convite na URL OU no localStorage (prioridade: URL)
+const urlParams = new URLSearchParams(window.location.search);
+let conviteCasalIdFromUrl = urlParams.get('convite') || localStorage.getItem('convitePendente') || '';
+
+// 2. Se veio da URL, salva no localStorage para persistir entre navegações
+if (urlParams.get('convite')) {
+  localStorage.setItem('convitePendente', urlParams.get('convite'));
+
+  // 3. Remove o parâmetro da URL para não ficar visível (opcional)
+  //    Mas mantém no localStorage para uso posterior
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete('convite');
+  window.history.replaceState({}, document.title, cleanUrl);
+}
+
+console.log('🔗 Convite detectado:', conviteCasalIdFromUrl || 'nenhum');
+// ============================================================
+// CONVITE - FIM
+// ============================================================
+
 let chartMensal = null;
 let chartAnual = null;
 let managerialUserFilter = 'geral';
@@ -821,14 +847,6 @@ let isListening = false;
 let recognition = null;
 let fotoPerfilPendente = '';
 let goalModalEditingId = null;
-
-if (conviteCasalIdFromUrl && !new URLSearchParams(window.location.search).get('convite')) {
-  const newUrl = new URL(window.location.href);
-  newUrl.searchParams.set('convite', conviteCasalIdFromUrl);
-  window.history.replaceState({}, document.title, newUrl);
-} else if (conviteCasalIdFromUrl) {
-  localStorage.setItem('convitePendente', conviteCasalIdFromUrl);
-}
 
 // ============================================================
 // DOM REFS
@@ -2248,8 +2266,20 @@ async function addTransaction(desc, amount, type, paymentStatus, statusSource, c
       if (error) throw error;
     }
 
-    // TODO: PUSH NOTIFICATION - Disabled temporarily
-    // Will be re-enabled with Edge Function later
+    // ============================================================
+    // NOTIFICA O PARCEIRO(A) SOBRE A NOVA TRANSAÇÃO (modo casal)
+    // ============================================================
+    // Se for uma transação individual (não repetição), notifica o parceiro.
+    // Aviso não-bloqueante: não falha o cadastro caso o push falhe.
+    if (currentAccountType === 'couple' && currentCasalId && (!repeat || repeatCount <= 1)) {
+      notifyPartner({
+        description: payload.description,
+        amount: payload.amount,
+        type: payload.type,
+        due_date: payload.due_date,
+        category: payload.category
+      }).catch(() => {});
+    }
   }
   await loadAllData();
 }
@@ -3103,6 +3133,8 @@ logoutBtn.addEventListener('click', async () => {
   document.getElementById('login-password').value = '';
   setAuthMessage('Você saiu da sua conta.');
   try {
+    // Remove a inscrição de push do Supabase antes de sair
+    await removePushSubscription();
     await supabase.auth.signOut();
     currentUser = null;
     globalData = {};
@@ -4006,6 +4038,8 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     launchCatalog = {};
     categoryCatalog = {};
     goalsCatalog = {};
+    // Permite reconfigurar o push quando o usuário fizer login novamente
+    pushSetupRequested = false;
     showAuthentication();
     return;
   }
@@ -4023,6 +4057,13 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     await loadUserData(user);
     updateBiometricToggleUI();
     updateVoiceToggleUI();
+
+    // Reconfigura o push após o login efetivo (novo SIGNED_IN),
+    // mesmo que esta sessão de página não tenha o listener de primeiro gesto ativo.
+    setTimeout(() => {
+      pushSetupRequested = true;
+      if (currentUser) setupPushNotifications();
+    }, 1000);
   } catch (error) {
     console.error('Erro na verificação de segurança:', error);
     showAuthentication();
@@ -4031,18 +4072,263 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 });
 
 // ============================================================
+// PUSH NOTIFICATIONS - VIA SERVICE WORKER
+// ============================================================
+
+async function ensurePushServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  try {
+    // Garante que o Service Worker de push (sw-push.js) esteja registrado.
+    // O service-worker.js atual é apenas um "kill switch" que remove caches
+    // e o próprio registro; ele não trata eventos 'push'.
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg && reg.active && reg.active.scope) {
+      // Se o SW ativo aponta para outro arquivo, registra o de push para assumir.
+      if (!reg.active.scriptURL.endsWith('/sw-push.js')) {
+        await navigator.serviceWorker.register('/sw-push.js');
+      }
+    } else {
+      await navigator.serviceWorker.register('/sw-push.js');
+    }
+    return await navigator.serviceWorker.ready;
+  } catch (error) {
+    console.error('❌ Erro ao registrar SW de push:', error);
+    return null;
+  }
+}
+
+// ============================================================
+// PUSH NOTIFICATIONS - SUPABASE VERSION (CONFIG + INSCRIÇÃO)
+// ============================================================
+
+async function setupPushNotifications() {
+  try {
+    // 1. Verifica se o navegador suporta notificações
+    if (!('Notification' in window)) {
+      console.log('🔕 Notificações não suportadas');
+      return;
+    }
+
+    // 2. Solicita permissão
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+    }
+
+    if (permission !== 'granted') {
+      console.log('🔕 Permissão de notificação negada');
+      return;
+    }
+
+    // 3. Verifica se o Service Worker está registrado
+    if (!('serviceWorker' in navigator)) {
+      console.log('🔕 Service Worker não suportado');
+      return;
+    }
+
+    // Garante que o SW de push esteja registrado antes de configurar
+    const registration = (await ensurePushServiceWorker()) || await navigator.serviceWorker.ready;
+
+    // 4. Verifica se já tem inscrição push
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      // 5. Cria uma nova inscrição (usando VAPID key pública)
+      const publicKey = 'BHFI6KslKwWFT8h_GxIswLDRmVA2ZRwnCgLOJAMKR0o7tC_my2yV7PxLugQcVdXvIZn5kqIfZR8cDhcXodLfqwc';
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: publicKey
+      });
+      console.log('✅ Push subscription criada');
+    }
+
+    // 6. Salva a subscription no Supabase
+    await savePushSubscription(subscription);
+
+  } catch (error) {
+    console.error('❌ Erro ao configurar push:', error);
+  }
+}
+
+async function savePushSubscription(subscription) {
+  if (!currentUser) return;
+
+  try {
+    // Extrai as chaves da subscription
+    const keys = subscription.toJSON().keys;
+
+    const subscriptionData = {
+      user_id: currentUser.id,
+      endpoint: subscription.endpoint,
+      p256dh: keys.p256dh,
+      auth_key: keys.auth,
+      couple_id: currentCasalId || null,
+      updated_at: new Date().toISOString()
+    };
+
+    // Verifica se já existe uma subscription para este usuário/endpoint
+    const { data: existing, error: checkError } = await supabase
+      .from('push_subscriptions')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('endpoint', subscription.endpoint)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw checkError;
+    }
+
+    let error;
+    if (existing) {
+      // Atualiza a existente (remove a antiga do mesmo endpoint)
+      const { error: updateError } = await supabase
+        .from('push_subscriptions')
+        .update(subscriptionData)
+        .eq('id', existing.id);
+      error = updateError;
+    } else {
+      // Insere a nova subscription
+      const { error: insertError } = await supabase
+        .from('push_subscriptions')
+        .insert(subscriptionData);
+      error = insertError;
+    }
+
+    if (error) throw error;
+    console.log('✅ Push subscription salva no Supabase');
+  } catch (error) {
+    console.error('❌ Erro ao salvar subscription:', error);
+  }
+}
+
+// ============================================================
+// DISPARAR NOTIFICAÇÃO LOCAL
+// ============================================================
+
+function showLocalNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') {
+    return;
+  }
+
+  try {
+    new Notification(title, {
+      body: body,
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      vibrate: [200, 100, 200],
+      tag: 'financas-casal'
+    });
+  } catch (error) {
+    console.error('❌ Erro ao mostrar notificação:', error);
+  }
+}
+
+// ============================================================
+// NOTIFICAR PARCEIRO
+// ============================================================
+
+async function notifyPartner(transaction) {
+  if (!currentCasalId || currentAccountType !== 'couple') {
+    console.log('👤 Modo individual - sem notificação para parceiro');
+    return;
+  }
+
+  try {
+    // Busca as subscriptions dos membros do casal (exceto o próprio usuário)
+    const { data: subscriptions, error } = await supabase
+      .from('push_subscriptions')
+      .select('*')
+      .eq('couple_id', currentCasalId)
+      .neq('user_id', currentUser.id);
+
+    if (error) throw error;
+
+    // Notificação local para o usuário atual
+    showLocalNotification(
+      '💸 Transação adicionada!',
+      `${transaction.description} - ${currencyFormatter.format(transaction.amount)}`
+    );
+
+    if (!subscriptions || subscriptions.length === 0) {
+      console.log('🔕 Nenhuma subscription do parceiro encontrada');
+      return;
+    }
+
+    console.log(`📬 ${subscriptions.length} subscription(s) do parceiro encontrada(s)`);
+
+    // TODO: Enviar via Edge Function para notificações em tempo real
+    // (requer a VAPID privada no servidor). Enquanto isso, apenas notificação local.
+    // Chamada futura esperada (ex.: fetch para /functions/v1/push-notify):
+    //   await supabase.functions.invoke('push-notify', {
+    //     body: { endpoint: subscription.endpoint, transaction }
+    //   });
+    subscriptions.forEach((sub, index) => {
+      console.log(`📨 Subscription ${index + 1}:`, {
+        endpoint: sub.endpoint.substring(0, 50) + '...',
+        user_id: sub.user_id
+      });
+    });
+  } catch (error) {
+    console.error('❌ Erro ao notificar parceiro:', error);
+  }
+}
+
+// ============================================================
+// REMOVER SUBSCRIPTION (NO LOGOUT)
+// ============================================================
+
+async function removePushSubscription() {
+  if (!currentUser) return;
+
+  try {
+    // Desassocia as subscriptions antigas do usuário
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('user_id', currentUser.id);
+
+    if (error) throw error;
+    console.log('✅ Push subscription removida');
+  } catch (error) {
+    console.error('❌ Erro ao remover subscription:', error);
+  }
+}
+
+// ============================================================
 // INIT
 // ============================================================
 console.log('🔥 App migrado para Supabase!');
 console.log('📌 URL do Supabase:', SUPABASE_URL);
-console.log('📌 Push notifications desativadas temporariamente.');
-console.log('📌 TODO: Reativar push com Edge Function');
+console.log('📌 Push notifications reativadas (lado cliente; Edge Function pendente).');
+
+// Dispara a configuração do push apenas após o primeiro gesto do usuário.
+// Evita o bloqueio do navegador ao chamar Notification.requestPermission()
+// sem interação (feature policy/autoplay). Se o usuário já estiver autenticado
+// (sessão restaurada), o push é configurado assim que ele interagir com o app.
+// A variável 'pushSetupRequested' é declarada globalmente na seção STATE.
+async function tryEnablePushOnFirstInteraction() {
+  if (pushSetupRequested) return;
+  pushSetupRequested = true;
+  document.removeEventListener('pointerdown', tryEnablePushOnFirstInteraction);
+  // Pequeno atraso para não competir com o gesto que abriu a UI.
+  setTimeout(() => {
+    if (currentUser) setupPushNotifications();
+  }, 800);
+}
+document.addEventListener('pointerdown', tryEnablePushOnFirstInteraction);
 
 initVoiceRecognition();
 
-if (conviteCasalIdFromUrl) {
-  setAuthMode(true);
+// ============================================================
+// CONVITE - EXIBIÇÃO DA MENSAGEM NO MODO DE CADASTRO
+// ============================================================
+// 4. Exibe mensagem na tela de cadastro se houver convite pendente.
+//    (A leitura/persistência já foi feita no topo do script.)
+if (conviteCasalIdFromUrl && authInviteMessage) {
   authInviteMessage.style.display = 'block';
+  authInviteMessage.textContent = '📩 Você foi convidado para uma conta casal! Ao criar sua conta você entrará automaticamente.';
+  // Muda para o modo de cadastro automaticamente
+  setAuthMode(true);
 }
 
 console.log('✅ Todas as funções carregadas com sucesso!');
