@@ -1290,6 +1290,43 @@ function updateDeleteButtonUI() {
   }
 }
 
+// Intervalo de "vigilância" do parceiro: enquanto o casal estiver aguardando o
+// convidado se cadastrar (criador com menos de 2 membros), consulta de tempos em
+// tempos o nº de membros. Assim que o convidado entra, o cabeçalho é atualizado e
+// o botão de convite some — mesmo que o Realtime de "profiles" não esteja ativo.
+let partnerWatchTimer = null;
+
+function startPartnerWatchIfNeeded() {
+  const needsWatch = currentAccountType === 'couple'
+    && isCasalCreator
+    && currentCasalId
+    && lastMemberCount < 2;
+
+  if (!needsWatch) {
+    if (partnerWatchTimer) { clearInterval(partnerWatchTimer); partnerWatchTimer = null; }
+    return;
+  }
+  if (partnerWatchTimer) return;
+  partnerWatchTimer = setInterval(async () => {
+    try {
+      const { data: members } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('couple_id', currentCasalId);
+      const count = (members || []).length;
+      if (count >= 2) {
+        // O convite já foi usado/aceito: para de observar e atualiza o cabeçalho,
+        // o que ocultará o botão de convite automaticamente.
+        clearInterval(partnerWatchTimer);
+        partnerWatchTimer = null;
+        await refreshCasalHeaderMetadata();
+      }
+    } catch (e) {
+      console.warn('Falha ao consultar parceiro (watch).', e);
+    }
+  }, 8000);
+}
+
 function showAuthentication() {
   mainView.style.display = 'none';
   managerialView.style.display = 'none';
@@ -1525,6 +1562,7 @@ async function refreshCasalHeaderMetadata() {
 
   updateInviteButtonVisibility();
   updateDeleteButtonUI();
+  startPartnerWatchIfNeeded();
   showAuthenticatedApp(currentProfile, currentUser);
 }
 
@@ -3303,15 +3341,32 @@ signupForm.addEventListener('submit', async (event) => {
         .eq('id', conviteCasalIdFromUrl)
         .single();
       if (coupleData) {
-        await supabase
+        // Garante que o convite só pode ser usado/aceito uma vez: o casal aceita
+        // no máximo 2 membros (quem criou + 1 convidado). Se já estiver completo,
+        // a nova conta não entra no casal e permanece individual.
+        const { data: members } = await supabase
           .from('profiles')
-          .update({ couple_id: coupleData.id })
-          .eq('id', data.user.id);
-        await supabase
-          .from('couple_invites')
-          .update({ used: true, used_by: data.user.id })
-          .eq('couple_id', coupleData.id)
-          .eq('invited_email', email);
+          .select('id')
+          .eq('couple_id', coupleData.id);
+        const memberCount = (members || []).length;
+
+        if (memberCount < 2) {
+          await supabase
+            .from('profiles')
+            .update({ couple_id: coupleData.id })
+            .eq('id', data.user.id);
+          // Convite de uso único: ao ser aceito, marca como usado TODOS os convites
+          // ainda pendentes deste casal, de modo que o link não possa mais ser
+          // aproveitado por outra pessoa depois que o casal foi completado.
+          await supabase
+            .from('couple_invites')
+            .update({ used: true, used_by: data.user.id, status: 'accepted' })
+            .eq('couple_id', coupleData.id)
+            .is('used', false);
+        } else {
+          setAuthMessage('Este convite já foi utilizado. O casal já está completo com 2 membros.');
+        }
+
         localStorage.removeItem('convitePendente');
         conviteCasalIdFromUrl = '';
         const cleanUrl = new URL(window.location.href);
@@ -3365,14 +3420,63 @@ deleteAccountBtn.addEventListener('click', async () => {
   if (isCouple && !isCasalCreator) { alert('Somente quem criou a conta de casal pode excluí-la.'); return; }
 
   if (isCouple && isCasalCreator && lastMemberCount >= 2) {
-    const confirmation = confirm('Isso vai remover o acesso do seu parceiro(a) aos dados do casal.\n\nDeseja continuar?');
-    if (!confirmation) return;
     const partnerUid = lastMembrosRaw.find((id) => id !== currentUser.id);
     if (!partnerUid) { alert('Não foi possível identificar a conta do parceiro(a).'); return; }
+
+    const partnerProfile = membrosCasalProfiles.find((m) => m.id === partnerUid);
+    const partnerName = partnerProfile?.full_name || 'seu parceiro(a)';
+    const confirmation = confirm(
+      `Isso vai remover ${partnerName} da conta de casal.\n\nEle(a) deixará de enxergar os dados compartilhados e voltará a ter apenas a conta individual dele(a).\n\nDeseja continuar?`
+    );
+    if (!confirmation) return;
+
     try {
-      // TODO: Implementar remoção de parceiro
-      alert('O acesso do parceiro(a) aos dados foi removido.');
+      // Desvincula o convidado do casal: couple_id volta a nulo para que ele passe
+      // a ficar isolado na própria conta (individual) e perca o acesso compartilhado.
+      // Só o criador (usuário principal) pode fazer isso — o convidado não tem essa ação.
+      const { error: detachError } = await supabase
+        .from('profiles')
+        .update({ couple_id: null })
+        .eq('id', partnerUid)
+        .eq('couple_id', currentCasalId);
+      if (detachError) throw detachError;
+
+      // Apaga os registros financeiros que o convidado criou dentro deste casal
+      // (transações, lançamentos futuros, categorias e metas). Assim ele não leva
+      // consigo e nem continua enxergando dados do casal ao voltar a ser individual.
+      for (const tabela of ['transactions', 'launches', 'categories', 'goals']) {
+        try {
+          await supabase
+            .from(tabela)
+            .delete()
+            .eq('couple_id', currentCasalId)
+            .eq('user_id', partnerUid);
+        } catch (tf) {
+          console.warn(`Não foi possível limpar ${tabela} do parceiro removido:`, tf);
+        }
+      }
+
+      // Libera o convite do casal (novamente reutilizável) para convidar outro parceiro,
+      // removendo a marcação de "usado" que foi aplicada quando este convidado aceitou.
+      try {
+        await supabase
+          .from('couple_invites')
+          .update({ used: false, used_by: null, status: 'pending' })
+          .eq('couple_id', currentCasalId)
+          .eq('used_by', partnerUid);
+      } catch (e) { console.warn('Não foi possível reabrir o convite do casal.', e); }
+
+      // Atualiza o estado local: remove o parceiro desvinculado da lista de membros.
+      lastMembrosRaw = lastMembrosRaw.filter((id) => id !== partnerUid);
+      membrosCasalProfiles = (membrosCasalProfiles || []).filter((m) => m.id !== partnerUid);
+      lastMemberCount = lastMembrosRaw.length;
+
+      // Recarrega os dados do criador já sem os lançamentos do ex-parceiro.
       await loadAllData();
+      updateDeleteButtonUI();
+      updateInviteButtonVisibility();
+      await refreshCasalHeaderMetadata();
+      alert(`${partnerName} foi removido(a) da conta de casal e não tem mais acesso aos dados compartilhados.`);
     } catch (error) {
       console.error('Erro ao remover parceiro:', error);
       alert('Não foi possível remover o parceiro(a). Tente novamente.');
@@ -4328,6 +4432,22 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// Ao voltar para o primeiro plano, revalida o estado do casal (nº de membros e
+// criador) e religa o tempo real. Assim, se o convidado se cadastrou em outro
+// aparelho enquanto este app esteve em segundo plano, o botão de convite some
+// automaticamente assim que ele reaparece na tela.
+document.addEventListener('visibilitychange', () => {
+  if (!currentUser) return;
+  if (document.visibilityState !== 'visible') return;
+  if (currentAccountType === 'couple' && currentCasalId) {
+    refreshCasalHeaderMetadata().catch((e) => console.error('Erro ao revalidar casal em 1º plano:', e));
+    subscribeRealtime();
+  } else if (currentUser) {
+    // Em conta individual também reativa o tempo real caso o canal tenha caído.
+    subscribeRealtime();
+  }
+});
+
 // ============================================================
 // AUTH STATE CHANGE
 // ============================================================
@@ -4340,6 +4460,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       realtimeChannels.forEach((ch) => supabase.removeChannel(ch));
     } catch (e) {}
     realtimeChannels = [];
+    if (partnerWatchTimer) { clearInterval(partnerWatchTimer); partnerWatchTimer = null; }
     pendingBiometricUser = null;
     hideBiometricLock();
     currentUser = null;
