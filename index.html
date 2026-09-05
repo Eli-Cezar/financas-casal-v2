@@ -404,7 +404,7 @@
       <div class="header-icons-wrap">
         <div class="header-actions-top">
           <button type="button" id="invite-btn" class="notification-btn" style="display:none;" aria-expanded="false" aria-label="Convidar parceiro(a)" title="Convidar parceiro(a)"><i class="ti ti-user-plus"></i></button>
-          <button type="button" id="notification-btn" class="notification-btn" aria-expanded="false" aria-label="Ver contas com vencimento nos próximos 2 dias" title="Contas a vencer nos próximos 2 dias"><i class="ti ti-bell"></i><span id="notification-count" class="notification-count"></span></button>
+          <button type="button" id="notification-btn" class="notification-btn" aria-expanded="false" aria-label="Ver contas vencidas em aberto ou a vencer nos próximos 2 dias" title="Contas vencidas em aberto ou a vencer nos próximos 2 dias"><i class="ti ti-bell"></i><span id="notification-count" class="notification-count"></span></button>
         </div>
         <div id="menu-popover" class="menu-popover" role="menu" aria-label="Mais opções">
           <span class="menu-section-label">Configurações</span>
@@ -439,7 +439,7 @@
           <p id="couple-activate-error-msg" style="font-size:0.78rem;color:var(--danger);margin-top:6px;min-height:16px;"></p>
         </div>
         <div id="notification-popover" class="notification-popover" role="dialog" aria-label="Avisos de vencimento">
-          <h2>Vencimentos próximos (2 dias)</h2>
+          <h2>Vencidos em aberto e próximos (2 dias)</h2>
           <ul id="notification-list" class="notification-list"></ul>
         </div>
         <div id="invite-popover" class="notification-popover" role="dialog" aria-label="Convidar parceiro(a)">
@@ -992,6 +992,19 @@ function parseDateParts(value) {
   return String(value || '').split('-').map(Number);
 }
 
+// Avança "monthsToAdd" meses a partir de year/month(1-12)/day, mantendo o MESMO DIA
+// do lançamento principal. Se o mês de destino não tiver esse dia (ex.: dia 31 em
+// meses com 30 dias, ou 29/02 fora de ano bissexto), usa o último dia válido daquele
+// mês em vez de "estourar" para o mês seguinte (o que mudaria a data indevidamente).
+function addMonthsKeepDay(year, month, day, monthsToAdd) {
+  const totalMonths = (month - 1) + monthsToAdd;
+  const targetYear = year + Math.floor(totalMonths / 12);
+  const targetMonth = ((totalMonths % 12) + 12) % 12; // 0-based
+  const daysInTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const targetDay = Math.min(day, daysInTargetMonth);
+  return new Date(targetYear, targetMonth, targetDay);
+}
+
 function formatDateLabel(value) {
   if (!value) return 'Sem data';
   const [year, month, day] = parseDateParts(value);
@@ -1005,13 +1018,17 @@ function toDateOnly(value) {
 }
 
 function getAutoPaymentStatus(dueDateValue, type) {
+  // Regra para STATUS AUTOMÁTICO usada ao CADASTRAR:
+  // - Vencimento para hoje ou data anterior: nasce "Pago" (despesa) / "Recebido" (receita);
+  // - Vencimento futuro: nasce "A pagar" / "A receber".
   if (!dueDateValue) return type === 'income' ? 'A receber' : 'A pagar';
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const dueDate = toDateOnly(dueDateValue);
-  if (!dueDate) return type === 'income' ? 'A receber' : 'A pagar';
-  if (type === 'income') return dueDate < todayStart ? 'Recebido' : 'A receber';
-  return dueDate < todayStart ? 'Pago' : 'A pagar';
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const [y, m, d] = parseDateParts(dueDateValue);
+  const due = new Date(y, m - 1, d);
+  if (isNaN(due.getTime())) return type === 'income' ? 'A receber' : 'A pagar';
+  if (due.getTime() <= today.getTime()) return type === 'income' ? 'Recebido' : 'Pago';
+  return type === 'income' ? 'A receber' : 'A pagar';
 }
 
 function getTransactionType(item) {
@@ -1021,10 +1038,22 @@ function getTransactionType(item) {
 
 function resolvePaymentStatus(item) {
   const type = getTransactionType(item);
-  if (item.statusSource === 'manual') {
-    return item.paymentStatus || (type === 'income' ? 'A receber' : 'A pagar');
+  // Campos podem vir do banco (snake_case) ou de objetos locais (camelCase)
+  const stored = item.payment_status || item.paymentStatus;
+  const source = item.status_source || item.statusSource;
+  if (source === 'manual') {
+    // O usuário clicou no botão e definiu manualmente o status: essa escolha
+    // prevalece sobre a regra automática de data, até que ele clique de novo.
+    return stored || (type === 'income' ? 'A receber' : 'A pagar');
   }
-  return getAutoPaymentStatus(item.dueDate, type);
+  // status 'auto': NÃO usa o valor congelado no cadastro. Recalcula sempre
+  // com base na data de vencimento comparada a HOJE, para que o lançamento
+  // mude sozinho para "Pago/Recebido" assim que a data chegar (ou já tiver
+  // passado) e continue "A pagar/A receber" enquanto a data for futura —
+  // vale tanto para o lançamento principal quanto para cada parcela de uma
+  // repetição, cada uma seguindo a própria data.
+  const dueDate = item.due_date || item.dueDate;
+  return getAutoPaymentStatus(dueDate, type);
 }
 
 function getCategoryIcon(categoryName) {
@@ -1847,6 +1876,9 @@ function getCurrentMonthExpenses() {
 function renderNotifications() {
   const today = new Date();
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // Vencidos recém-abertos (até 30 dias no passado) ou a vencer nos próximos 2 dias
+  const windowStart = new Date(todayStart);
+  windowStart.setDate(windowStart.getDate() - 30);
   const limitDate = new Date(todayStart);
   limitDate.setDate(limitDate.getDate() + 2);
 
@@ -1854,7 +1886,8 @@ function renderNotifications() {
     if (!item?.due_date) return false;
     const dueDate = new Date(`${item.due_date}T00:00:00`);
     if (isNaN(dueDate.getTime())) return false;
-    if (dueDate < todayStart || dueDate > limitDate) return false;
+    // Incluir vencidos em aberto e os que vencem dentro de 2 dias
+    if (dueDate < windowStart || dueDate > limitDate) return false;
     const status = resolvePaymentStatus(item);
     return status === 'A pagar' || status === 'A receber';
   }).sort((a, b) => a[1].due_date.localeCompare(b[1].due_date));
@@ -1865,7 +1898,7 @@ function renderNotifications() {
 
   if (!notifications.length) {
     const emptyItem = document.createElement('li');
-    emptyItem.textContent = 'Não há vencimentos nos próximos 2 dias.';
+    emptyItem.textContent = 'Sem vencimentos em aberto nos próximos 2 dias.';
     notificationList.appendChild(emptyItem);
     return;
   }
@@ -1875,9 +1908,22 @@ function renderNotifications() {
     const title = document.createElement('strong');
     title.textContent = item.description || 'Lançamento sem descrição';
     const date = document.createElement('small');
-    const isToday = item.due_date === todayDatePart(new Date());
-    date.textContent = `${isToday ? 'Vence hoje' : 'Vence em breve'}: ${formatDateLabel(item.due_date)}`;
+    const dueStamp = new Date(`${item.due_date}T00:00:00`);
+    const msPerDay = 86400000;
+    const diffDays = Math.round((dueStamp - todayStart) / msPerDay);
+    let label;
+    if (diffDays < 0) {
+      label = `📌 Vencido há ${Math.abs(diffDays)} dia${Math.abs(diffDays) === 1 ? '' : 's'}`;
+    } else if (diffDays === 0) {
+      label = 'Vence hoje';
+    } else if (diffDays === 1) {
+      label = 'Vence amanhã';
+    } else {
+      label = `Vence em ${diffDays} dias`;
+    }
+    date.textContent = `${label} (${formatDateLabel(item.due_date)})`;
     li.append(title, date);
+    if (diffDays < 0) li.style.borderColor = 'rgba(248,113,113,0.6)';
     notificationList.appendChild(li);
   });
 }
@@ -2182,9 +2228,10 @@ async function addTransaction(desc, amount, type, paymentStatus, statusSource, c
     if (repeat && repeatCount > 1) {
       const [initialYear, initialMonth, initialDay] = parseDateParts(dueDate);
       for (let i = 0; i < repeatCount; i++) {
-        let nextDate = new Date(initialYear, initialMonth - 1, initialDay);
-        if (repeat === 'monthly') nextDate.setMonth(nextDate.getMonth() + i);
-        else if (repeat === 'yearly') nextDate.setFullYear(nextDate.getFullYear() + i);
+        let nextDate;
+        if (repeat === 'monthly') nextDate = addMonthsKeepDay(initialYear, initialMonth, initialDay, i);
+        else if (repeat === 'yearly') nextDate = addMonthsKeepDay(initialYear, initialMonth, initialDay, i * 12);
+        else nextDate = new Date(initialYear, initialMonth - 1, initialDay);
         const formattedDueDate = todayDatePart(nextDate);
         const itemPayload = {
           ...payload,
@@ -2221,10 +2268,9 @@ async function updateTransactionStatus(id, newStatus) {
     const [year, month, day] = parseDateParts(item.due_date);
     let nextDueDate;
     if (item.repeat_type === 'monthly') {
-      nextDueDate = new Date(year, month - 1, day);
-      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+      nextDueDate = addMonthsKeepDay(year, month, day, 1);
     } else {
-      nextDueDate = new Date(year + 1, month - 1, day);
+      nextDueDate = addMonthsKeepDay(year, month, day, 12);
     }
     const newPayload = {
       ...item,
@@ -2626,12 +2672,13 @@ function exportToPDF() {
   doc.setFillColor(249, 115, 22);
   doc.setTextColor(255, 255, 255);
   doc.rect(10, y - 5, 190, 7, 'F');
-  doc.text('Data', 14, y);
-  doc.text('Descrição', 40, y);
-  doc.text('Categoria', 95, y);
-  doc.text('Tipo', 130, y);
-  doc.text('Valor', 155, y);
-  doc.text('Status', 180, y);
+  doc.text('Data', 12, y);
+  doc.text('Descrição', 32, y);
+  doc.text('Categoria', 78, y);
+  doc.text('Tipo', 103, y);
+  doc.text('Valor', 123, y);
+  doc.text('Status', 148, y);
+  doc.text('Quem', 172, y);
 
   let totalExpense = 0, totalIncome = 0;
   y += 7;
@@ -2639,12 +2686,13 @@ function exportToPDF() {
   transactions.forEach((t) => {
     if (y > 280) { doc.addPage(); y = 20; }
     doc.setFontSize(8);
-    doc.text(t.data.split('-').reverse().join('/'), 14, y);
-    doc.text(t.descricao.substring(0, 25), 40, y);
-    doc.text(t.categoria.substring(0, 12), 95, y);
-    doc.text(t.tipo, 130, y);
-    doc.text(`R$ ${t.valor.toFixed(2).replace('.', ',')}`, 155, y);
-    doc.text(t.status, 180, y);
+    doc.text(t.data.split('-').reverse().join('/'), 12, y);
+    doc.text(t.descricao.substring(0, 20), 32, y);
+    doc.text(t.categoria.substring(0, 10), 78, y);
+    doc.text(t.tipo, 103, y);
+    doc.text(`R$ ${t.valor.toFixed(2).replace('.', ',')}`, 123, y);
+    doc.text(t.status, 148, y);
+    doc.text((t.criadoPor || '—').substring(0, 12), 172, y);
     if (t.tipo === 'Despesa') totalExpense += t.valor;
     else totalIncome += t.valor;
     y += 5;
@@ -2883,7 +2931,8 @@ async function activateCoupleAccount(nomeEle, nomeEla) {
     .from('couples')
     .insert({
       nome_ele: nomeEle,
-      nome_ela: nomeEla
+      nome_ela: nomeEla,
+      criado_por: currentUser.id
     })
     .select()
     .single();
@@ -3433,7 +3482,8 @@ form.addEventListener('submit', async (e) => {
     }
   } catch (error) {
     console.error('Erro ao salvar lançamento:', error);
-    showFormMessage('Não foi possível salvar. Tente novamente.', 'error');
+    const hint = (error && (error.message || error.details || error.hint || error.code)) || 'Não foi possível salvar. Tente novamente.';
+    showFormMessage('Não foi possível salvar. Detalhe: ' + hint, 'error');
   } finally {
     submitButton.disabled = false;
     submitButton.innerHTML = editingTransactionId ? '<i class="ti ti-device-floppy"></i> Salvar Alteração' : '<i class="ti ti-plus"></i> Adicionar Transação';
@@ -3591,7 +3641,10 @@ coupleActivateConfirmBtn?.addEventListener('click', async () => {
     await loadAllData();
   } catch (error) {
     console.error('Erro ao ativar conta casal:', error);
-    coupleActivateErrorMsg.textContent = 'Não foi possível ativar a Conta Casal. Tente novamente.';
+    const detalhe = error?.message || error?.error_description || error?.details || '';
+    coupleActivateErrorMsg.textContent = detalhe
+      ? `Não foi possível ativar a Conta Casal: ${detalhe}`
+      : 'Não foi possível ativar a Conta Casal. Tente novamente.';
   } finally {
     coupleActivateConfirmBtn.disabled = false;
     coupleActivateConfirmBtn.textContent = 'Ativar Conta Casal';
