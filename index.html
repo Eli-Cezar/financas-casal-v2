@@ -472,6 +472,14 @@
         <div id="invite-popover" class="notification-popover" role="dialog" aria-label="Convidar parceiro(a)">
           <h2 style="color:var(--accent);">Convide seu parceiro(a)</h2>
           <div id="invite-step-email">
+            <div style="background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.3);border-radius:8px;padding:8px 10px;margin-bottom:10px;">
+              <strong style="font-size:0.78rem;color:var(--accent);">👫 Isto será uma Conta Casal</strong>
+              <p style="font-size:0.72rem;color:var(--text-muted);margin:4px 0 0;line-height:1.4;">Confirme os nomes do casal. Quando o convidado criar a conta, o app une as finanças e passa a mostrar os dois nomes juntos para ambos (ex.: <b style="color:var(--accent);">Eli &amp; Viviane</b>).</p>
+            </div>
+            <label for="invite-name-ele" style="font-size:0.75rem;color:var(--text-muted);">Nome (ELE)</label>
+            <input id="invite-name-ele" type="text" placeholder="Ex: Eli" style="width:100%;margin:2px 0 8px;"/>
+            <label for="invite-name-ela" style="font-size:0.75rem;color:var(--text-muted);">Nome (ELA)</label>
+            <input id="invite-name-ela" type="text" placeholder="Ex: Viviane" style="width:100%;margin:2px 0 10px;"/>
             <div class="invite-method-tabs">
               <button type="button" id="invite-method-email-btn" class="invite-method-btn active">E-mail</button>
               <button type="button" id="invite-method-phone-btn" class="invite-method-btn">Celular (WhatsApp)</button>
@@ -982,6 +990,8 @@ const inviteStepEmail = document.getElementById('invite-step-email');
 const inviteStepLink = document.getElementById('invite-step-link');
 const invitePartnerEmail = document.getElementById('invite-partner-email');
 const invitePartnerPhone = document.getElementById('invite-partner-phone');
+const inviteNameEle = document.getElementById('invite-name-ele');
+const inviteNameEla = document.getElementById('invite-name-ela');
 const generateInviteLinkBtn = document.getElementById('generate-invite-link-btn');
 const inviteErrorMsg = document.getElementById('invite-error-msg');
 const inviteLinkDisplay = document.getElementById('invite-link-display');
@@ -3228,6 +3238,64 @@ async function activateCoupleAccount(nomeEle, nomeEla) {
   membrosCasalProfiles = [{ id: currentUser.id, full_name: currentUserDisplayName }];
   return couple.id;
 }
+// Aceita um convite de casal pendente para o perfil logado (conta individual).
+// - Valida que o casal existe e ainda tem vaga (máx. 2 membros).
+// - Vincula o perfil ao casal e marca os convites pendentes como usados (uso único).
+// - Já prepara os nomes "ELE & ELA" em memória para o cabeçalho do 1º render.
+// - Retorna o id do casal se o usuário entrou; null caso contrário.
+async function acceptCoupleInvite(profile) {
+  if (!profile || profile.couple_id || !conviteCasalIdFromUrl) return null;
+  try {
+    const { data: coupleData } = await supabase
+      .from('couples')
+      .select('id, nome_ele, nome_ela, criado_por')
+      .eq('id', conviteCasalIdFromUrl)
+      .single();
+    if (!coupleData) {
+      console.warn('Convite inválido: casal não encontrado.', conviteCasalIdFromUrl);
+      return null;
+    }
+    const { data: members } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('couple_id', coupleData.id);
+    const memberCount = (members || []).length;
+    if (memberCount >= 2) {
+      setAuthMessage('Este convite já foi utilizado. O casal já está completo com 2 membros.');
+      return null;
+    }
+    // Vincula o convidado ao casal (junta as contas).
+    await supabase
+      .from('profiles')
+      .update({ couple_id: coupleData.id })
+      .eq('id', profile.id);
+    // Convite de uso único: marca como usados TODOS os convites ainda pendentes
+    // deste casal, para que o link não possa mais ser aproveitado por outra pessoa.
+    await supabase
+      .from('couple_invites')
+      .update({ used: true, used_by: profile.id, status: 'accepted' })
+      .eq('couple_id', coupleData.id)
+      .is('used', false);
+    // Prepara o estado em memória para exibir a tela/cabeçalho do casal já agora.
+    profile.couple_id = coupleData.id;
+    casalNomeEle = coupleData.nome_ele || '';
+    casalNomeEla = coupleData.nome_ela || '';
+    membrosCasalProfiles = (members || [])
+      .filter((m) => m.id !== profile.id)
+      .concat([{ id: profile.id, full_name: currentUserDisplayName }]);
+    return coupleData.id;
+  } catch (error) {
+    console.error('Erro ao aceitar convite:', error);
+    return null;
+  } finally {
+    // Limpa o convite pendente (localStorage + URL) em qualquer resultado.
+    localStorage.removeItem('convitePendente');
+    conviteCasalIdFromUrl = '';
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete('convite');
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+}
 
 // ============================================================
 // REMEMBER ME
@@ -4105,6 +4173,9 @@ inviteBtn?.addEventListener('click', () => {
     inviteErrorMsg.textContent = '';
     invitePartnerEmail.value = '';
     invitePartnerPhone.value = '';
+    // Pré-preenche os nomes do casal (ELE & ELA) com os dados já gravados.
+    if (inviteNameEle) inviteNameEle.value = casalNomeEle || '';
+    if (inviteNameEla) inviteNameEla.value = casalNomeEla || '';
     setInviteMethod('email');
   }
 });
@@ -4128,6 +4199,13 @@ generateInviteLinkBtn?.addEventListener('click', async () => {
   inviteErrorMsg.textContent = '';
   if (!currentCasalId) { inviteErrorMsg.textContent = 'Não foi possível identificar sua conta de casal.'; return; }
 
+  const nomeEle = (inviteNameEle?.value || '').trim();
+  const nomeEla = (inviteNameEla?.value || '').trim();
+  if (!nomeEle || !nomeEla) {
+    inviteErrorMsg.textContent = 'Informe o nome de ELE e de ELA para montar a Conta Casal.';
+    return;
+  }
+
   let inviteKey = '';
   let waPhoneDigits = '';
   if (inviteMethod === 'email') {
@@ -4145,6 +4223,15 @@ generateInviteLinkBtn?.addEventListener('click', async () => {
   generateInviteLinkBtn.textContent = 'Gerando...';
 
   try {
+    // Garante/atualiza os nomes do casal (ELE & ELA) para que, quando o convidado
+    // se cadastrar, os dois usuários vejam o nome conjunto no topo do app.
+    await supabase
+      .from('couples')
+      .update({ nome_ele: nomeEle, nome_ela: nomeEla })
+      .eq('id', currentCasalId);
+    casalNomeEle = nomeEle;
+    casalNomeEla = nomeEla;
+
     await supabase
       .from('couple_invites')
       .insert({
@@ -4161,8 +4248,13 @@ generateInviteLinkBtn?.addEventListener('click', async () => {
     inviteStepEmail.style.display = 'none';
     inviteStepLink.style.display = 'block';
 
+    // Reflete os nomes no cabeçalho do próprio usuário já nesta sessão.
+    if (currentAccountType === 'couple') {
+      refreshCasalHeaderMetadata().catch((e) => console.error('Erro ao atualizar casal:', e));
+    }
+
     if (inviteMethod === 'phone') {
-      const waText = encodeURIComponent(`Oi! Baixe nosso app de finanças e acesse nossa conta conjunta clicando aqui: ${link}`);
+      const waText = encodeURIComponent(`Oi ${nomeEla || 'princesa'}! Baixe nosso app de finanças e acesse nossa conta conjunta clicando aqui: ${link}`);
       window.open(`https://wa.me/${waPhoneDigits}?text=${waText}`, '_blank');
     }
   } catch (error) {
@@ -4374,24 +4466,40 @@ async function loadUserData(user) {
   currentCasalId = profile?.couple_id || null;
   currentUserDisplayName = profile?.full_name || user.email?.split('@')[0] || 'Parceiro';
 
+  // Convidado com convite pendente: se ainda não pertence a um casal, o vínculo é
+  // feito aqui. Assim funciona no cadastro, no login e após a confirmação de e-mail,
+  // garantindo que ambos os usuários entrem na mesma Conta Casal ("ELE & ELA").
+  if (conviteCasalIdFromUrl && !currentCasalId) {
+    const acceptedCoupleId = await acceptCoupleInvite(profile);
+    if (acceptedCoupleId) {
+      currentCasalId = acceptedCoupleId;
+      profile.couple_id = acceptedCoupleId;
+    }
+  }
+
   // Check if user is in a couple
   if (currentCasalId) {
     currentAccountType = 'couple';
     const { data: couple } = await supabase
       .from('couples')
-      .select('id, criado_por')
+      .select('id, nome_ele, nome_ela, criado_por')
       .eq('id', currentCasalId)
       .single();
     if (couple) {
       isCasalCreator = profile?.id === couple?.criado_por;
+      // Carrega os nomes do casal já aqui, para o cabeçalho não cair no nome
+      // individual do usuário logado.
+      casalNomeEle = couple.nome_ele || '';
+      casalNomeEla = couple.nome_ela || '';
     }
-    // Get members
+    // Get members (com nome), para montar o cabeçalho/menu de membros corretamente.
     const { data: members } = await supabase
       .from('profiles')
-      .select('id')
+      .select('id, full_name')
       .eq('couple_id', currentCasalId);
     lastMembrosRaw = members?.map((m) => m.id) || [];
     lastMemberCount = lastMembrosRaw.length;
+    membrosCasalProfiles = members || [];
   } else {
     currentAccountType = 'individual';
     isCasalCreator = false;
