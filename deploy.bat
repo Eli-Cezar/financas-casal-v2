@@ -50,11 +50,11 @@ if "%msg%"=="" set msg="Atualização - %date% %time%"
 echo.
 echo 📦 Buscando atualizações do GitHub...
 git pull origin main --rebase
-echo.
-git add .
-git commit -m "%msg%"
->>>>>>> 63db8d3 (Deploy r├ípido - 05/09/2026 13:27:18,88)
+
+echo 🌐 Enviando para o GitHub...
 git push origin main
+
+echo ✅ Deploy concluído!
 echo ✅ Conflitos resolvidos (alterações do GitHub mantidas)!
 pause
 goto SAIR
