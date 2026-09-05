@@ -147,12 +147,16 @@
     .icon-picker-trigger i{font-size:1.3rem;color:var(--accent)}
     .icon-picker-trigger .ti-chevron-down{font-size:1rem;color:var(--text-muted);transition:transform 0.2s ease}
     .icon-picker.open .ti-chevron-down{transform:rotate(180deg)}
-    .icon-library{display:none;position:absolute;z-index:10;left:0;right:0;top:calc(100% + 6px);grid-template-columns:repeat(6,1fr);gap:8px;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--popover-bg);box-shadow:var(--shadow)}
+    .icon-library{display:none;position:absolute;z-index:10;left:0;right:0;top:calc(100% + 6px);grid-template-columns:repeat(6,1fr);gap:8px;padding:10px;max-height:210px;overflow-y:auto;overscroll-behavior:contain;border:1px solid var(--border);border-radius:10px;background:var(--popover-bg);box-shadow:var(--shadow)}
     .icon-picker.open .icon-library{display:grid}
     .icon-choice{height:42px;border:1px solid var(--border);border-radius:9px;background:var(--input-bg);color:var(--text-muted);font-size:1.25rem;cursor:pointer}
     .icon-choice:hover,.icon-choice.selected{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
     .icon-choice.selected{box-shadow:0 0 0 2px rgba(249,115,22,0.2)}
     .category-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px}
+    /* Ícones de categoria em listas, metas e rótulos */
+    .launch-item .item-details strong,.goal-name{display:inline-flex;align-items:center;gap:8px}
+    .launch-item .item-details strong>i,.goal-name>i,.modal-static-label>i{font-style:normal;color:var(--accent);font-size:1.05rem;line-height:1}
+    .modal-static-label{display:inline-flex;align-items:center;gap:8px;color:var(--text)}
     .item-details strong{display:block;font-size:0.95rem;font-weight:600;color:#ffffff}
     .item-details small{color:var(--text-muted);font-size:0.75rem;margin-top:2px;display:block}
     .creator-badge{display:inline-block;margin-top:4px;font-size:0.68rem;background-color:var(--accent);color:#1a1a1a;padding:2px 7px;border-radius:999px;font-weight:800;letter-spacing:0.2px}
@@ -1033,9 +1037,14 @@ const defaultCategories = [
 ];
 
 const categoryIconOptions = [
-  'ti ti-category', 'ti ti-shopping-cart', 'ti ti-car', 'ti ti-home', 'ti ti-bulb', 'ti ti-wallet',
-  'ti ti-heartbeat', 'ti ti-pill', 'ti ti-school', 'ti ti-device-gamepad-2', 'ti ti-plane', 'ti ti-gift',
-  'ti ti-tools', 'ti ti-phone', 'ti ti-wifi', 'ti ti-building-store', 'ti ti-paw', 'ti ti-coffee'
+  'ti ti-category',
+  'ti ti-home', 'ti ti-building-store', 'ti ti-shopping-cart', 'ti ti-car', 'ti ti-bulb', 'ti ti-wallet',
+  'ti ti-heartbeat', 'ti ti-pill', 'ti ti-school', 'ti ti-confetti', 'ti ti-plane', 'ti ti-gift',
+  'ti ti-device-gamepad-2', 'ti ti-camera', 'ti ti-music', 'ti ti-movie', 'ti ti-books', 'ti ti-coffee',
+  'ti ti-paw', 'ti ti-tree', 'ti ti-swimming', 'ti ti-building', 'ti ti-tools', 'ti ti-phone', 'ti ti-wifi',
+  'ti ti-cloud', 'ti ti-database', 'ti ti-code', 'ti ti-rocket', 'ti ti-star', 'ti ti-heart', 'ti ti-flag',
+  'ti ti-clock', 'ti ti-calendar', 'ti ti-user', 'ti ti-users', 'ti ti-mail', 'ti ti-lock', 'ti ti-key',
+  'ti ti-chart-bar', 'ti ti-chart-pie', 'ti ti-credit-card', 'ti ti-coin', 'ti ti-cash'
 ];
 
 function createCategoryIcon(icon, className = '') {
@@ -1131,6 +1140,65 @@ function resolvePaymentStatus(item) {
 function getCategoryIcon(categoryName) {
   const category = Object.values(categoryCatalog).find((item) => item?.name === categoryName);
   return category?.icon || defaultCategories.find((item) => item.name === categoryName)?.icon || '🏷️';
+}
+
+// Mapa de classes Tabler → emoji, usado onde o <i> não é renderizado (ex.: <option>).
+const TABLER_TO_EMOJI = {
+  'ti ti-category': '🏷️',
+  'ti ti-shopping-cart': '🛒',
+  'ti ti-car': '🚗',
+  'ti ti-home': '🏠',
+  'ti ti-bulb': '💡',
+  'ti ti-wallet': '💵',
+  'ti ti-heartbeat': '🏥',
+  'ti ti-pill': '💊',
+  'ti ti-school': '🎓',
+  'ti ti-device-gamepad-2': '🎮',
+  'ti ti-plane': '✈️',
+  'ti ti-gift': '🎁',
+  'ti ti-tools': '🛠️',
+  'ti ti-phone': '📱',
+  'ti ti-wifi': '📶',
+  'ti ti-building-store': '🏪',
+  'ti ti-paw': '🐾',
+  'ti ti-coffee': '☕',
+  'ti ti-confetti': '🎉',
+  'ti ti-camera': '📷',
+  'ti ti-music': '🎵',
+  'ti ti-movie': '🎬',
+  'ti ti-books': '📚',
+  'ti ti-tree': '🌳',
+  'ti ti-swimming': '🏊',
+  'ti ti-building': '🏢',
+  'ti ti-cloud': '☁️',
+  'ti ti-database': '🗄️',
+  'ti ti-code': '💻',
+  'ti ti-rocket': '🚀',
+  'ti ti-star': '⭐',
+  'ti ti-heart': '❤️',
+  'ti ti-flag': '🚩',
+  'ti ti-clock': '⏰',
+  'ti ti-calendar': '📅',
+  'ti ti-user': '👤',
+  'ti ti-users': '👥',
+  'ti ti-mail': '✉️',
+  'ti ti-lock': '🔒',
+  'ti ti-key': '🔑',
+  'ti ti-chart-bar': '📊',
+  'ti ti-chart-pie': '📈',
+  'ti ti-credit-card': '💳',
+  'ti ti-coin': '🪙',
+  'ti ti-cash': '💵'
+};
+
+// Retorna o ícone como TEXTO (emoji) para exibir dentro de <option> e rótulos,
+// aceitando tanto classes "ti ti-*" quanto emojis salvos (legado Firebase).
+function categoryIconText(categoryName) {
+  const icon = getCategoryIcon(categoryName);
+  const normalized = String(icon || '').trim();
+  if (!normalized) return '🏷️';
+  if (normalized.startsWith('ti ')) return TABLER_TO_EMOJI[normalized] || '🏷️';
+  return normalized;
 }
 
 function getCategoryEntries() {
@@ -1419,7 +1487,10 @@ function openGoalModal(editingId = null, existingGoal = null) {
     goalModalTitle.textContent = `Editar meta: ${existingGoal.category_name}`;
     goalModalCategoryField.classList.add('hidden');
     goalModalCategoryLabel.classList.remove('hidden');
-    goalModalCategoryLabel.textContent = `${getCategoryIcon(existingGoal.category_name)} ${existingGoal.category_name}`;
+    // Monta o rótulo com o ícone real (Tabler ou emoji), sem imprimir a classe crua.
+    goalModalCategoryLabel.innerHTML = '';
+    goalModalCategoryLabel.appendChild(createCategoryIcon(getCategoryIcon(existingGoal.category_name)));
+    goalModalCategoryLabel.appendChild(document.createTextNode(' ' + existingGoal.category_name));
   } else {
     goalModalTitle.textContent = 'Nova meta por categoria';
     goalModalCategoryField.classList.remove('hidden');
@@ -1437,7 +1508,7 @@ function openGoalModal(editingId = null, existingGoal = null) {
       availableEntries.forEach(([_, cat]) => {
         const option = document.createElement('option');
         option.value = cat.name;
-        option.textContent = cat.name;
+        option.textContent = `${categoryIconText(cat.name)} ${cat.name}`;
         goalModalCategorySelect.appendChild(option);
       });
     }
@@ -1799,7 +1870,7 @@ function renderCategories() {
     const name = category.name || 'Sem nome';
     const option = document.createElement('option');
     option.value = name;
-    option.textContent = name;
+    option.textContent = `${categoryIconText(name)} ${name}`;
     option.dataset.categoryId = id;
     categorySelect.appendChild(option);
 
@@ -2606,7 +2677,7 @@ async function deleteLaunchTemplate(id) {
   await loadAllData();
 }
 
-async function saveCategory(name) {
+async function saveCategory(name, icon = '🏷️') {
   const normalizedName = name.trim();
   if (!normalizedName) return;
   const exists = getCategoryEntries().some(([_, cat]) => cat.name.toLowerCase() === normalizedName.toLowerCase());
@@ -2615,6 +2686,7 @@ async function saveCategory(name) {
     .from('categories')
     .insert({
       name: normalizedName,
+      icon,
       type: 'expense',
       user_id: currentUser.id,
       couple_id: (currentAccountType === 'couple' && currentCasalId) ? currentCasalId : null
