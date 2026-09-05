@@ -39,10 +39,21 @@ goto SAIR
 
 :MANTER_REMOTO
 echo.
+<<<<<<< HEAD
 echo 📌 Mantendo alterações do GitHub (remoto)...
 git checkout --theirs Dockerfile auth.js firebase-messaging-sw.js index.html supabase-config.js sw-push.js
 git add Dockerfile auth.js firebase-messaging-sw.js index.html supabase-config.js sw-push.js
 git rebase --continue
+=======
+set /p msg="Digite a mensagem do commit: "
+if "%msg%"=="" set msg="Atualização - %date% %time%"
+echo.
+echo 📦 Buscando atualizações do GitHub...
+git pull origin main --rebase
+echo.
+git add .
+git commit -m "%msg%"
+>>>>>>> 63db8d3 (Deploy r├ípido - 05/09/2026 13:27:18,88)
 git push origin main
 echo ✅ Conflitos resolvidos (alterações do GitHub mantidas)!
 pause
