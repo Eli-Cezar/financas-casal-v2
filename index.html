@@ -1382,6 +1382,8 @@ function resetTransactionForm() {
 }
 
 function openTransactionModal() {
+  // Garante que o campo "Categoria" esteja sempre populado ao abrir o modal.
+  renderCategories();
   txModalTitle.textContent = editingTransactionId ? 'Editar Transação' : 'Nova Transação';
   txModalOverlay.classList.add('active');
 }
@@ -1612,24 +1614,34 @@ async function loadAllData() {
   if (!cError && categories && categories.length > 0) {
     categoryCatalog = {};
     categories.forEach((c) => { categoryCatalog[c.id] = c; });
-  } else if (!categories || categories.length === 0) {
-    // Define as categorias padrão vinculadas ao scope correto (casal ou usuário).
-    for (const cat of defaultCategories) {
-      await supabase.from('categories').insert({
-        name: cat.name,
-        icon: cat.icon,
-        type: 'expense',
-        user_id: currentUser.id,
-        couple_id: (currentAccountType === 'couple' && currentCasalId) ? currentCasalId : null
-      });
-    }
-    // Reload
-    const { data: newCats } = await scopeOrm(
-      supabase.from('categories').select('*')
-    );
-    if (newCats) {
-      categoryCatalog = {};
-      newCats.forEach((c) => { categoryCatalog[c.id] = c; });
+  } else {
+    // Sem categorias no banco (novo usuário/casal) ou falha de leitura: garante
+    // que o campo "Categoria" nunca fique vazio, usando as categorias padrão.
+    categoryCatalog = {};
+    defaultCategories.forEach((c) => { categoryCatalog[c.id] = { ...c }; });
+    // Tenta persistir as padrão quando a leitura voltou vazia (sem erro).
+    if (!cError && (!categories || categories.length === 0)) {
+      try {
+        for (const cat of defaultCategories) {
+          await supabase.from('categories').insert({
+            name: cat.name,
+            icon: cat.icon,
+            type: 'expense',
+            user_id: currentUser.id,
+            couple_id: (currentAccountType === 'couple' && currentCasalId) ? currentCasalId : null
+          });
+        }
+        // Recarrega para usar os ids reais do banco.
+        const { data: newCats } = await scopeOrm(
+          supabase.from('categories').select('*')
+        );
+        if (newCats && newCats.length > 0) {
+          categoryCatalog = {};
+          newCats.forEach((c) => { categoryCatalog[c.id] = c; });
+        }
+      } catch (e) {
+        console.warn('Não foi possível gravar as categorias padrão no banco.', e);
+      }
     }
   }
 
