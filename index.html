@@ -3945,7 +3945,7 @@ async function loadUserData(user) {
     currentAccountType = 'couple';
     const { data: couple } = await supabase
       .from('couples')
-      .select('id')
+      .select('id, criado_por')
       .eq('id', currentCasalId)
       .single();
     if (couple) {
