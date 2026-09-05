@@ -430,13 +430,40 @@
         </div>
         <div id="couple-activate-popover" class="notification-popover" role="dialog" aria-label="Ativar conta casal">
           <h2 style="color:var(--accent);">Ativar Conta Casal</h2>
-          <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:10px;">Seus dados atuais serão migrados para a conta conjunta. Depois de ativada, essa opção não pode ser desfeita pelo app.</p>
-          <label for="couple-name-ele" style="font-size:0.78rem;color:var(--text-muted);">Nome (ELE)</label>
-          <input id="couple-name-ele" type="text" placeholder="Ex: João" style="width:100%;margin-bottom:8px;"/>
-          <label for="couple-name-ela" style="font-size:0.78rem;color:var(--text-muted);">Nome (ELA)</label>
-          <input id="couple-name-ela" type="text" placeholder="Ex: Maria" style="width:100%;margin-bottom:8px;"/>
-          <button type="button" id="couple-activate-confirm-btn" class="secondary-btn" style="width:100%;">Ativar Conta Casal</button>
-          <p id="couple-activate-error-msg" style="font-size:0.78rem;color:var(--danger);margin-top:6px;min-height:16px;"></p>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-bottom:8px;">Informe os nomes do casal e o contato do seu parceiro(a). O app ativará a conta compartilhada e gerará o convite em um único passo. Seus dados atuais serão migrados para a conta conjunta.</p>
+          <label for="couple-name-ele" style="font-size:0.75rem;color:var(--text-muted);">Nome (ELE)</label>
+          <input id="couple-name-ele" type="text" placeholder="Ex: João" style="width:100%;margin:2px 0 8px;"/>
+          <label for="couple-name-ela" style="font-size:0.75rem;color:var(--text-muted);">Nome (ELA)</label>
+          <input id="couple-name-ela" type="text" placeholder="Ex: Maria" style="width:100%;margin:2px 0 10px;"/>
+
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600;">Como prefere convidar seu(sua) parceiro(a)?</div>
+          <div class="invite-method-tabs">
+            <button type="button" id="couple-inv-method-email-btn" class="invite-method-btn active">E-mail</button>
+            <button type="button" id="couple-inv-method-phone-btn" class="invite-method-btn">Celular (WhatsApp)</button>
+          </div>
+          <div id="couple-activate-email-field">
+            <input id="couple-partner-email" type="email" placeholder="email do(a) parceiro(a)@exemplo.com" style="width:100%;margin-bottom:8px;"/>
+          </div>
+          <div id="couple-activate-phone-field" class="hidden">
+            <input id="couple-partner-phone" type="tel" placeholder="(11) 91234-5678" style="width:100%;margin-bottom:8px;"/>
+          </div>
+
+          <div id="couple-activate-step-form">
+            <button type="button" id="couple-activate-confirm-btn" class="secondary-btn" style="width:100%;">Ativar Conta Casal e Gerar Convite</button>
+          </div>
+          <p id="couple-activate-error-msg" style="font-size:0.78rem;color:var(--danger);margin-top:6px;min-height:14px;"></p>
+
+          <div id="couple-activate-step-link" style="display:none;">
+            <div style="background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.3);border-radius:8px;padding:8px 10px;margin-bottom:8px;">
+              <strong style="font-size:0.72rem;color:var(--text-muted);">Conta casal ativada! Envie este link para ele(a) criar a conta:</strong>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;">
+                <span id="couple-invite-link-display" style="font-size:0.7rem;word-break:break-all;"></span>
+                <button type="button" id="couple-copy-invite-btn" class="secondary-btn" style="flex-shrink:0;"><i class="ti ti-copy"></i></button>
+              </div>
+            </div>
+            <button type="button" id="couple-share-invite-btn" class="secondary-btn" style="width:100%;"><i class="ti ti-share"></i> Compartilhar</button>
+            <button type="button" id="couple-done-btn" class="secondary-btn" style="width:100%;margin-top:6px;">Concluir</button>
+          </div>
         </div>
         <div id="notification-popover" class="notification-popover" role="dialog" aria-label="Avisos de vencimento">
           <h2>Vencidos em aberto e próximos (2 dias)</h2>
@@ -881,6 +908,18 @@ const coupleActivateConfirmBtn = document.getElementById('couple-activate-confir
 const coupleActivateErrorMsg = document.getElementById('couple-activate-error-msg');
 const coupleNameEle = document.getElementById('couple-name-ele');
 const coupleNameEla = document.getElementById('couple-name-ela');
+const coupleInvMethodEmailBtn = document.getElementById('couple-inv-method-email-btn');
+const coupleInvMethodPhoneBtn = document.getElementById('couple-inv-method-phone-btn');
+const couplePartnerEmail = document.getElementById('couple-partner-email');
+const couplePartnerPhone = document.getElementById('couple-partner-phone');
+const coupleActEmailField = document.getElementById('couple-activate-email-field');
+const coupleActPhoneField = document.getElementById('couple-activate-phone-field');
+const coupleActStepForm = document.getElementById('couple-activate-step-form');
+const coupleActStepLink = document.getElementById('couple-activate-step-link');
+const coupleInviteLinkDisplay = document.getElementById('couple-invite-link-display');
+const coupleCopyInviteBtn = document.getElementById('couple-copy-invite-btn');
+const coupleShareInviteBtn = document.getElementById('couple-share-invite-btn');
+const coupleDoneBtn = document.getElementById('couple-done-btn');
 const biometricToggleBtn = document.getElementById('biometric-toggle-btn');
 const voiceToggleBtn = document.getElementById('voice-toggle-btn');
 const form = document.getElementById('finance-form');
@@ -3820,12 +3859,57 @@ document.addEventListener('click', (event) => {
 });
 
 // COUPLE ACTIVATE
+let coupleInviteMethod = 'email';
+
+function setCoupleInviteMethod(method) {
+  coupleInviteMethod = method;
+  coupleInvMethodEmailBtn.classList.toggle('active', method === 'email');
+  coupleInvMethodPhoneBtn.classList.toggle('active', method === 'phone');
+  coupleActEmailField.classList.toggle('hidden', method !== 'email');
+  coupleActPhoneField.classList.toggle('hidden', method !== 'phone');
+}
+
+coupleInvMethodEmailBtn?.addEventListener('click', () => setCoupleInviteMethod('email'));
+coupleInvMethodPhoneBtn?.addEventListener('click', () => setCoupleInviteMethod('phone'));
+
 coupleActivateBtn?.addEventListener('click', () => {
   coupleActivateErrorMsg.textContent = '';
   coupleNameEle.value = '';
   coupleNameEla.value = '';
+  couplePartnerEmail.value = '';
+  couplePartnerPhone.value = '';
+  setCoupleInviteMethod('email');
+  if (coupleActStepLink) coupleActStepLink.style.display = 'none';
+  if (coupleActStepForm) coupleActStepForm.style.display = 'block';
   coupleActivatePopover.classList.toggle('show');
   menuPopover.classList.remove('show');
+});
+
+coupleDoneBtn?.addEventListener('click', () => {
+  coupleActivatePopover.classList.remove('show');
+});
+
+coupleCopyInviteBtn?.addEventListener('click', async () => {
+  const link = coupleInviteLinkDisplay.textContent.trim();
+  if (!link) return;
+  try {
+    await navigator.clipboard.writeText(link);
+    const original = coupleCopyInviteBtn.innerHTML;
+    coupleCopyInviteBtn.innerHTML = '<i class="ti ti-check"></i>';
+    setTimeout(() => { coupleCopyInviteBtn.innerHTML = original; }, 2000);
+  } catch (e) { alert(`Link: ${link}`); }
+});
+
+coupleShareInviteBtn?.addEventListener('click', async () => {
+  const link = coupleInviteLinkDisplay.textContent.trim();
+  if (!link) return;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: 'Convite - Finanças do Casal', text: 'Oi! Baixe nosso app de finanças e acesse nossa conta conjunta clicando aqui:', url: link });
+    } catch (e) {}
+  } else {
+    try { await navigator.clipboard.writeText(link); alert('Link copiado!'); } catch (e) { alert(`Link: ${link}`); }
+  }
 });
 
 coupleActivateConfirmBtn?.addEventListener('click', async () => {
@@ -3834,14 +3918,47 @@ coupleActivateConfirmBtn?.addEventListener('click', async () => {
   const nomeEla = coupleNameEla.value.trim();
   if (!nomeEle || !nomeEla) { coupleActivateErrorMsg.textContent = 'Informe o nome de ELE e de ELA.'; return; }
 
+  let waPhoneDigits = '';
+  if (coupleInviteMethod === 'email') {
+    const email = couplePartnerEmail.value.trim().toLowerCase();
+    if (!email || !email.includes('@')) { coupleActivateErrorMsg.textContent = 'Informe um e-mail válido do(a) parceiro(a).'; return; }
+  } else {
+    const digits = couplePartnerPhone.value.replace(/\D/g, '');
+    if (digits.length < 10) { coupleActivateErrorMsg.textContent = 'Informe um celular válido do(a) parceiro(a) com DDD.'; return; }
+    waPhoneDigits = digits.length <= 11 ? '55' + digits : digits;
+  }
+
   coupleActivateConfirmBtn.disabled = true;
-  coupleActivateConfirmBtn.textContent = 'Ativando...';
+  coupleActivateConfirmBtn.textContent = 'Ativando e gerando convite...';
   try {
-    await activateCoupleAccount(nomeEle, nomeEla);
-    coupleActivatePopover.classList.remove('show');
-    alert('Conta Casal ativada! O app vai recarregar para aplicar as mudanças.');
-    // Recarrega os datos sob o escopo do casal e reconfigura o tempo real
-    // (filtro passa de user_id para couple_id).
+    // 1. Ativa a conta casal (cria 'couples', vincula profile.couple_id e migra dados)
+    const coupleId = await activateCoupleAccount(nomeEle, nomeEla);
+
+    // 2. Gera o convite registrado na tabela couple_invites
+    await supabase
+      .from('couple_invites')
+      .insert({
+        couple_id: coupleId,
+        invited_email: coupleInviteMethod === 'email' ? couplePartnerEmail.value.trim().toLowerCase() : null,
+        phone: coupleInviteMethod === 'phone' ? couplePartnerPhone.value.trim() : null,
+        invited_by: currentUser.id,
+        status: 'pending'
+      });
+
+    // 3. Monta o link de convite e mostra a etapa de compartilhamento
+    const link = `${window.location.origin}${window.location.pathname}?convite=${coupleId}`;
+    coupleInviteLinkDisplay.textContent = link;
+    coupleActStepForm.style.display = 'none';
+    coupleActStepLink.style.display = 'block';
+
+    // Abre o WhatsApp (método celular) já com a mensagem de convite preenchida
+    if (coupleInviteMethod === 'phone' && waPhoneDigits) {
+      const waText = encodeURIComponent(`Oi ${nomeEla || 'princesa'}! Baixe nosso app de finanças e acesse nossa conta conjunta clicando aqui: ${link}`);
+      window.open(`https://wa.me/${waPhoneDigits}?text=${waText}`, '_blank');
+    }
+
+    // Recarrega os dados sob o escopo do casal e reconfigura o tempo real
+    // (o filtro passa de user_id para couple_id e passa a compartilhar tudo).
     updateInviteButtonVisibility();
     updateDeleteButtonUI();
     await refreshCasalHeaderMetadata();
@@ -3856,7 +3973,7 @@ coupleActivateConfirmBtn?.addEventListener('click', async () => {
       : 'Não foi possível ativar a Conta Casal. Tente novamente.';
   } finally {
     coupleActivateConfirmBtn.disabled = false;
-    coupleActivateConfirmBtn.textContent = 'Ativar Conta Casal';
+    coupleActivateConfirmBtn.textContent = 'Ativar Conta Casal e Gerar Convite';
   }
 });
 
